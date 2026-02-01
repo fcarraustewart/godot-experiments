@@ -107,7 +107,12 @@ func _ready():
 	add_child(player)
 	# -------------------------------
 	
-	# -----------------------------
+	# ---- SETUP CROW PET ---
+	var crow = load("res://crow_pet.gd").new()
+	crow.position = player.position + Vector2(-50, -50)
+	crow.assign_host(player) # Let crow know who to orbit
+	add_child(crow)
+	# ----------------------
 	
 	# --- SETUP HUD ---
 	game_ui = load("res://game_ui.gd").new()

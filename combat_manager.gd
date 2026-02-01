@@ -18,9 +18,11 @@ var registered_entities = [] # List of combat-capable nodes (Player, Enemies)
 func register_entity(entity: Node2D):
 	if not registered_entities.has(entity):
 		registered_entities.append(entity)
+		print("[CombatManager] Registered entity: ", entity.name, " (Total: ", registered_entities.size(), ")")
 
 func unregister_entity(entity: Node2D):
 	registered_entities.erase(entity)
+	print("[CombatManager] Unregistered entity: ", entity.name, " (Total: ", registered_entities.size(), ")")
 
 # --- TARGETING LOGIC ---
 

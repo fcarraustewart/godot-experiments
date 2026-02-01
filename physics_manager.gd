@@ -41,6 +41,44 @@ func _physics_process(delta):
 			match body.type:
 				"SOFT_BODY":
 					_simulate_soft_body(body, delta)
+				"SECOND_ORDER":
+					_simulate_second_order(body, delta)
+
+func register_second_order(id: String, initial_pos: Vector2, f: float, zeta: float, r: float):
+	var k1 = zeta / (PI * f)
+	var k2 = 1.0 / (pow(2.0 * PI * f, 2))
+	var k3 = r * zeta / (2.0 * PI * f)
+	
+	var sim = {
+		"id": id,
+		"type": "SECOND_ORDER",
+		"xp": initial_pos,    # Current state position
+		"xd": Vector2.ZERO,   # Current state velocity
+		"y": initial_pos,     # Target position
+		"y_prev": initial_pos,# Previous target (for velocity estimation)
+		"k1": k1, "k2": k2, "k3": k3,
+		"target_node": null   # Optional node to follow automatically
+	}
+	simulated_objects.append(sim)
+	return sim
+
+func _simulate_second_order(sim, delta):
+	# Calculate target velocity
+	var target_pos = sim.y
+	if is_instance_valid(sim.target_node):
+		target_pos = sim.target_node.position
+		
+	var y_dot = (target_pos - sim.y_prev) / delta
+	sim.y_prev = target_pos
+	
+	# Integration (Semi-Implicit Euler for stability)
+	# Using the constants k1, k2, k3 derived from f, zeta, r
+	var iterations = 4 # Sub-stepping for high-frequency stability
+	var step = delta / iterations
+	
+	for i in range(iterations):
+		sim.xp = sim.xp + step * sim.xd
+		sim.xd = sim.xd + step * (target_pos + sim.k3 * y_dot - sim.xp - sim.k1 * sim.xd) / sim.k2
 
 func _simulate_character_physics(char_node, delta):
 	if not char_node.has_method("apply_physics"):
@@ -126,3 +164,14 @@ func unregister_soft_body(id: String):
 
 func unregister_object(body):
 	simulated_objects.erase(body)
+
+func get_second_order_pos(id: String) -> Vector2:
+	for body in simulated_objects:
+		if body is Dictionary and body.get("id") == id:
+			return body.xp
+	return Vector2.ZERO
+
+func set_second_order_target(id: String, new_y: Vector2):
+	for body in simulated_objects:
+		if body is Dictionary and body.get("id") == id:
+			body.y = new_y

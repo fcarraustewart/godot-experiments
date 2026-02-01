@@ -20,6 +20,17 @@ var host: Node2D # The player to orbit
 var body_shape: Polygon2D
 var trail: Line2D
 
+# --- DYNAMICS PRESETS ---
+const DYNAMICS_ORBIT_F = 0.35
+const DYNAMICS_ORBIT_Z = 0.5
+const DYNAMICS_ORBIT_R = 2.0
+
+const DYNAMICS_ATTACK_F = 4.0
+const DYNAMICS_ATTACK_Z = 0.8
+const DYNAMICS_ATTACK_R = 0.5
+
+var dynamics_sim = null
+
 func _ready():
 	# Create the visual bird shape (A dark sharp triangle/crow silhouette)
 	body_shape = Polygon2D.new()
@@ -30,13 +41,25 @@ func _ready():
 		Vector2(-10, 8)   # Wing Right
 	])
 	body_shape.polygon = points
-	body_shape.color = Color(0.1, 0.1, 0.1, 1.0) # Dark Black/Grey
+	body_shape.color = Color(1.1, 0.1, 0.1, 1.0) # Dark Black/Grey
 	add_child(body_shape)
+	
+	# Register with Second Order Dynamics for organic flight
+	if PhysicsManager:
+		dynamics_sim = PhysicsManager.register_second_order(
+			"Crow_" + str(get_instance_id()), 
+			global_position, 
+			DYNAMICS_ORBIT_F, DYNAMICS_ORBIT_Z, DYNAMICS_ORBIT_R
+		)
+
+func _exit_tree():
+	if PhysicsManager and dynamics_sim:
+		PhysicsManager.unregister_object(dynamics_sim)
 	
 	# Add a shadow/trail
 	trail = Line2D.new()
 	trail.width = 10.0
-	trail.default_color = Color(0.0, 0.0, 0.0, 0.5)
+	trail.default_color = Color(1.40, 1.40, 1.40, 0.5)
 	trail.hide() # Show only when moving fast
 	# Note: Line2D doesn't strictly work as a trail automatically without code, 
 	# but for simplicity we'll just toggle visibility or rotation.
@@ -61,14 +84,26 @@ func _process(delta):
 				current_state = State.RETURN
 				return
 				
-			var dir = (target_enemy.position - global_position).normalized()
-			global_position += dir * ATTACK_SPEED * delta
-			look_at(target_enemy.position)
-			
-			# Hit check
-			if global_position.distance_to(target_enemy.position) < 20.0:
-				hit_enemy(target_enemy)
-				current_state = State.RETURN
+			# Update Dynamics for Hit Logic
+			if dynamics_sim:
+				dynamics_sim.y = target_enemy.global_position
+				global_position = dynamics_sim.xp
+				look_at(target_enemy.global_position)
+				
+				# Hit check
+				if global_position.distance_to(target_enemy.global_position) < 40.0:
+					hit_enemy(target_enemy)
+					current_state = State.RETURN
+					# "Bounce" back on hit
+					dynamics_sim.xd = -dynamics_sim.xd * 0.5 
+			else:
+				# Fallback
+				var dir = (target_enemy.global_position - global_position).normalized()
+				global_position += dir * ATTACK_SPEED * delta
+				look_at(target_enemy.global_position)
+				if global_position.distance_to(target_enemy.global_position) < 20.0:
+					hit_enemy(target_enemy)
+					current_state = State.RETURN
 				
 		State.RETURN:
 			if not is_instance_valid(host): return
@@ -84,6 +119,13 @@ func _process(delta):
 			if dist < 20.0:
 				current_state = State.ORBIT
 				attack_timer = ATTACK_COOLDOWN + randf() # Random delay
+				# Sync sim position on return to avoid "teleporting"
+				if dynamics_sim: 
+					# Revert to gentle orbit dynamics
+					update_dynamics(DYNAMICS_ORBIT_F, DYNAMICS_ORBIT_Z, DYNAMICS_ORBIT_R)
+					dynamics_sim.xp = global_position
+					dynamics_sim.y = global_position
+					dynamics_sim.xd = Vector2.ZERO
 
 func process_orbit(delta):
 	if not is_instance_valid(host): return
@@ -95,32 +137,58 @@ func process_orbit(delta):
 	
 	var desired_pos = host.position + Vector2(x_off, y_off - 60) # Fly above head
 	
-	# Smoothly float there
-	global_position = global_position.lerp(desired_pos, 5.0 * delta)
-	rotation = lerp_angle(rotation, 0.0, 5.0 * delta) # Level out
+	# Update Second Order Simulation for organic weight
+	if dynamics_sim:
+		dynamics_sim.y = desired_pos # Update target
+		global_position = dynamics_sim.xp # Apply simulated position
+		
+		# Rotate based on velocity for "leaning" effect
+		var vel = dynamics_sim.xd
+		if vel.length() > 50:
+			rotation = lerp_angle(rotation, vel.angle(), 10.0 * delta)
+		else:
+			rotation = lerp_angle(rotation, 0.0, 5.0 * delta)
+	else:
+		# Fallback to simple lerp
+		global_position = global_position.lerp(desired_pos, 5.0 * delta)
+		rotation = lerp_angle(rotation, 0.0, 5.0 * delta)
 	
 	# Face direction of movement (tangent)
 	# rotation = orbit_angle + PI/2
 
 func find_target():
-	# Access global enemies list from parent? 
-	# Assuming parent (show_spectrum) has 'enemies' array.
-	var main_node = get_parent()
-	if "enemies" in main_node:
-		var candidates = []
-		for e in main_node.enemies:
-			if e.position.distance_to(host.position) < 600: # Aggro range
-				candidates.append(e)
-		
-		if candidates.size() > 0:
-			return candidates.pick_random()
-	return null
+	if not CombatManager or not is_instance_valid(host): return null
+	
+	# 1. PRIORITY: If player is attacking something, help!
+	if host.current_state == host.State.ATTACKING:
+		# Use the player's sword hitbox (now in global space) to find what they are hitting
+		var targets = CombatManager.find_targets_in_hitbox(host.get_sword_hitbox(), host)
+		for t in targets:
+			if is_instance_valid(t) and t.has_method("is_enemy") and t.is_enemy():
+				print("[CrowPet] Target Found: Assisting player attack on ", t.name)
+				return t
+			
+	# 2. SECONDARY: Nearest enemy in AGGRO range (600px)
+	var nearest = CombatManager.get_nearest_target(host.global_position, 600.0, host)
+	if nearest:
+		print("[CrowPet] Target Found: Aggroing nearest enemy ", nearest.name)
+	return nearest
+
+func update_dynamics(f, z, r):
+	if not dynamics_sim: return
+	dynamics_sim.k1 = z / (PI * f)
+	dynamics_sim.k2 = 1.0 / (pow(2.0 * PI * f, 2))
+	dynamics_sim.k3 = r * z / (2.0 * PI * f)
 
 func start_attack(enemy):
 	target_enemy = enemy
 	current_state = State.ATTACK_DIVE
+	update_dynamics(DYNAMICS_ATTACK_F, DYNAMICS_ATTACK_Z, DYNAMICS_ATTACK_R)
 	# Shriek sound or visual cue here
 	
 func hit_enemy(enemy):
 	enemy.modulate = Color(3.0, 0.5, 0.5) # Dark Red Flash
 	print("Crow struck enemy!")
+
+func assign_host(player_node: Node2D):
+	host = player_node

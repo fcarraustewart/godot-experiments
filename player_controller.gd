@@ -767,7 +767,7 @@ func update_aim_indicator():
 		aim_indicator.visible = false
 
 func get_hurtbox() -> Rect2:
-	var top_left = position - (BODY_HURTBOX_SIZE / 2.0)
+	var top_left = global_position - (BODY_HURTBOX_SIZE / 2.0)
 	return Rect2(top_left, BODY_HURTBOX_SIZE)
 
 func get_sword_hitbox() -> Rect2:
@@ -776,7 +776,7 @@ func get_sword_hitbox() -> Rect2:
 	var offset = PLAYER_SWORD_HITBOX_OFFSET
 	if not facing_right: offset.x = -offset.x
 	
-	var box_center = position + Vector2(offset.x, offset.y)
+	var box_center = global_position + Vector2(offset.x, offset.y)
 	
 	var top_left = box_center - (SWORD_HITBOX_SIZE / 2.0)
 	return Rect2(top_left, SWORD_HITBOX_SIZE)
