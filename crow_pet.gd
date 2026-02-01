@@ -122,7 +122,7 @@ func _process(delta):
 				# Sync sim position on return to avoid "teleporting"
 				if dynamics_sim: 
 					# Revert to gentle orbit dynamics
-					update_dynamics(DYNAMICS_ORBIT_F, DYNAMICS_ORBIT_Z, DYNAMICS_ORBIT_R)
+					PhysicsManager.update_dynamics_for_sim(dynamics_sim, DYNAMICS_ORBIT_F, DYNAMICS_ORBIT_Z, DYNAMICS_ORBIT_R)
 					dynamics_sim.xp = global_position
 					dynamics_sim.y = global_position
 					dynamics_sim.xd = Vector2.ZERO
@@ -174,16 +174,10 @@ func find_target():
 		print("[CrowPet] Target Found: Aggroing nearest enemy ", nearest.name)
 	return nearest
 
-func update_dynamics(f, z, r):
-	if not dynamics_sim: return
-	dynamics_sim.k1 = z / (PI * f)
-	dynamics_sim.k2 = 1.0 / (pow(2.0 * PI * f, 2))
-	dynamics_sim.k3 = r * z / (2.0 * PI * f)
-
 func start_attack(enemy):
 	target_enemy = enemy
 	current_state = State.ATTACK_DIVE
-	update_dynamics(DYNAMICS_ATTACK_F, DYNAMICS_ATTACK_Z, DYNAMICS_ATTACK_R)
+	PhysicsManager.update_dynamics_for_sim(dynamics_sim,DYNAMICS_ATTACK_F, DYNAMICS_ATTACK_Z, DYNAMICS_ATTACK_R)
 	# Shriek sound or visual cue here
 	
 func hit_enemy(enemy):

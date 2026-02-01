@@ -175,3 +175,8 @@ func set_second_order_target(id: String, new_y: Vector2):
 	for body in simulated_objects:
 		if body is Dictionary and body.get("id") == id:
 			body.y = new_y
+
+func update_dynamics_for_sim(sim_dict: Dictionary, f: float, zeta: float, r: float):
+	sim_dict.k1 = zeta / (PI * f)
+	sim_dict.k2 = 1.0 / (pow(2.0 * PI * f, 2))
+	sim_dict.k3 = r * zeta / (2.0 * PI * f)

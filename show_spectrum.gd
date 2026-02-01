@@ -108,11 +108,24 @@ func _ready():
 	# -------------------------------
 	
 	# ---- SETUP CROW PET ---
-	var crow = load("res://crow_pet.gd").new()
-	crow.position = player.position + Vector2(-50, -50)
-	crow.assign_host(player) # Let crow know who to orbit
-	add_child(crow)
-	# ----------------------
+	for i in range(2):
+		var crow = load("res://crow_pet.gd").new()
+		crow.position = player.position + Vector2(-50 * (i+1), -50)
+		crow.assign_host(player)
+		add_child(crow)
+	
+	# ---- SETUP WEAPON CONTROLLER (AXE) ---
+	var axe = load("res://weapon_controller.gd").new()
+	axe.host = player
+	player.set("axe_ctrl", axe) # Link to player for attack sync
+	add_child(axe)
+
+	# ---- SETUP DUST PUFFS ---
+	for i in range(3):
+		var dust = load("res://dust_puff.gd").new()
+		dust.host = player
+		dust.position = player.position + Vector2(0, 70)
+		add_child(dust)
 	
 	# --- SETUP HUD ---
 	game_ui = load("res://game_ui.gd").new()

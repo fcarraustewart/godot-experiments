@@ -42,6 +42,7 @@ var fire_chains_ctrl
 var meteor_strike_ctrl
 var from_above = false
 
+var axe_ctrl # Procedural axe controller
 var crow_pet
 var player_cast_bar: ProgressBar
 var active_skill_ctrl = null
@@ -598,6 +599,8 @@ func _on_input_action(action_name: String, data: Dictionary):
 				change_state(State.ATTACKING)
 				state_timer = ATTACK_DURATION
 				emit_signal("cast_start", ATTACK_DURATION)
+				if is_instance_valid(axe_ctrl):
+					axe_ctrl.start_attack()
 
 		"fire_chains":
 			_try_start_cast(fire_chains_ctrl, "fire_chains")
