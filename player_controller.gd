@@ -1,9 +1,10 @@
-extends Node2D
+extends BaseEntity
 
 class_name PlayerController
 
 # --- CONFIG ---
 const SPEED = 500.0
+# ... (rest of constants)
 const ATTACK_DURATION = 0.3
 const JUMP_DURATION = 0.7
 const DASH_DURATION = 0.2
@@ -22,11 +23,7 @@ const SUCCESS_TEXTURES = {
 	0: "res://art/SuccessfulCastingAnims.png"
 }
 
-# --- STATE MACHINE ---
-enum State { IDLE, RUNNING, ATTACKING, CASTING, CASTING_COMPLETE, JUMPING, DASHING, STUNNED, INTERRUPTED }
 enum Reason { SILENCED, STUNNED, KICKED, PARRIED, HIT, OTHER }
-var current_state: State = State.IDLE
-var state_timer = 0.0
 var casting_time = 10.0
 var hit_count: int = 0
 # --- COMPONENTS ---
@@ -55,19 +52,14 @@ const MAX_CHARGE = 130.0
 signal charge_changed(new_val)
 
 # --- DATA ---
-var velocity = Vector2.ZERO
-var facing_right = true
 var casting_direction = Vector2.ZERO
 # Physics simulation
-var is_on_floor_physics = false
 var is_rooted_active = false
 var is_slowed_active = false
 var active_slow_factor = 1.0
 var last_cast_success = true
 
-func apply_physics():
-	# This method is a marker for PhysicsManager
-	pass
+
 
 # --- INPUT STATE (Populated by KeybindListener) ---
 var input_throttle = 0.0
@@ -204,6 +196,7 @@ func _on_slowed(duration: int, slow_amount: float):
 
 	
 func _ready():
+	super._ready()
 	# 1. Idle Sprite
 	sprite = Sprite2D.new()
 	sprite.texture = load("res://art/MainCharacter.png")
@@ -267,17 +260,6 @@ func _ready():
 	attack1.visible = false
 	add_child(attack1)
 	
-	# Register with Global Managers
-	if CombatManager:
-		CombatManager.register_entity(self)
-	
-	if PhysicsManager:
-		PhysicsManager.register_character(self)
-		# Update floor_y based on the Floor node in the parent scene if available
-		var floor_node = get_parent().find_child("Floor")
-		if floor_node:
-			PhysicsManager.floor_y = floor_node.position.y
-
 	# Instantiate Skills
 	chain_lightning_ctrl = load("res://with_physics_manager_chain_lightning_controller.gd").new()
 	chain_lightning_ctrl.game_node = game_node # Pass main node for enemy access
@@ -755,7 +737,6 @@ func update_animation(_delta):
 			sprite.frame = 0
 
 # --- HITBOX HELPERS (For compatibility with Main Scene collision check) ---
-const BODY_HURTBOX_SIZE = Vector2(120, 140) 
 const SWORD_HITBOX_SIZE = Vector2(180, 40)
 const PLAYER_SWORD_HITBOX_OFFSET = Vector2(80, 0)
 
@@ -769,9 +750,7 @@ func update_aim_indicator():
 	else:
 		aim_indicator.visible = false
 
-func get_hurtbox() -> Rect2:
-	var top_left = global_position - (BODY_HURTBOX_SIZE / 2.0)
-	return Rect2(top_left, BODY_HURTBOX_SIZE)
+
 
 func get_sword_hitbox() -> Rect2:
 	if current_state != State.ATTACKING: return Rect2()

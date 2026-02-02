@@ -1,9 +1,7 @@
-extends Node2D
+extends BasePetEntity
 
 # --- SETTINGS ---
-var host: Node2D
 var offset = Vector2(40, -10)
-var dynamics_sim = null
 
 # Dynamics settings for different states
 const IDLE_F = 2.0
@@ -14,18 +12,12 @@ const ATTACK_F = 5.0
 const ATTACK_Z = 0.4
 const ATTACK_R = 3.0
 
-var is_attacking = false
+var is_procedural_attacking = false
 var attack_angle = 0.0
 
 func _ready():
 	_create_axe_visuals()
-	
-	if PhysicsManager:
-		dynamics_sim = PhysicsManager.register_second_order(
-			"Weapon_" + str(get_instance_id()),
-			global_position,
-			IDLE_F, IDLE_Z, IDLE_R
-		)
+	super._ready()
 
 func _create_axe_visuals():
 	# Handle
@@ -56,9 +48,13 @@ func _create_axe_visuals():
 	edge.default_color = Color(0.9, 0.9, 1.0)
 	head.add_child(edge)
 
-func _exit_tree():
-	if PhysicsManager and dynamics_sim:
-		PhysicsManager.unregister_object(dynamics_sim)
+func _setup_dynamics():
+	if PhysicsManager:
+		dynamics_sim = PhysicsManager.register_second_order(
+			"Weapon_" + str(get_instance_id()),
+			global_position,
+			IDLE_F, IDLE_Z, IDLE_R
+		)
 
 func _process(delta):
 	if not is_instance_valid(host): return
@@ -75,7 +71,7 @@ func _process(delta):
 		scale.x = 1
 		
 	# Attack Logic (Visual only for now)
-	if is_attacking:
+	if is_procedural_attacking:
 		attack_angle += 15.0 * delta
 		current_offset += Vector2(cos(attack_angle), sin(attack_angle)) * 40.0
 		if attack_angle > PI:
@@ -88,18 +84,19 @@ func _process(delta):
 		# Organic Rotation based on Velocity/Movement
 		var vel = dynamics_sim.xd
 		var target_rot = vel.x * 0.001
-		if is_attacking:
+		if is_procedural_attacking:
 			target_rot += attack_angle
 			
 		rotation = lerp_angle(rotation, target_rot, 10.0 * delta)
 
-func start_attack():
-	is_attacking = true
+func start_attack(target: Node2D = null):
+	# Note: target is optional for weapon swing
+	is_procedural_attacking = true
 	attack_angle = -PI/2
-	if PhysicsManager:
-		PhysicsManager.call("update_dynamics_for_sim", dynamics_sim, ATTACK_F, ATTACK_Z, ATTACK_R)
+	if PhysicsManager and dynamics_sim:
+		PhysicsManager.update_dynamics_for_sim(dynamics_sim, ATTACK_F, ATTACK_Z, ATTACK_R)
 
 func stop_attack():
-	is_attacking = false
-	if PhysicsManager:
-		PhysicsManager.call("update_dynamics_for_sim", dynamics_sim, IDLE_F, IDLE_Z, IDLE_R)
+	is_procedural_attacking = false
+	if PhysicsManager and dynamics_sim:
+		PhysicsManager.update_dynamics_for_sim(dynamics_sim, IDLE_F, IDLE_Z, IDLE_R)

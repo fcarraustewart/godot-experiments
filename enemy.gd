@@ -1,43 +1,65 @@
-extends Sprite2D
+extends BaseEntity
 
-# Simple Enemy script to support the new Mediator architecture
+# --- ENEMY CONFIG ---
+const WANDER_SPEED = 150.0
+const AGGRO_RANGE = 500.0
+
+var sprite: Sprite2D
+var wander_timer: float = 0.0
+var wander_direction: float = 1.0
 
 func _ready():
+	super._ready()
 	add_to_group("Enemy")
-	if CombatManager:
-		CombatManager.register_entity(self)
-
-func _exit_tree():
-	if CombatManager:
-		CombatManager.unregister_entity(self)
+	
+	# Create sprite if not already present
+	sprite = Sprite2D.new()
+	sprite.texture = load("res://art/SpectrumWithSword.png")
+	sprite.hframes = 3
+	add_child(sprite)
 
 func is_enemy():
 	return true
 
-func get_hurtbox() -> Rect2:
-	# Define sizes consistent with show_spectrum.gd
-	var BODY_HURTBOX_SIZE = Vector2(120, 140)
-	var top_left = global_position - (BODY_HURTBOX_SIZE / 2.0)
-	return Rect2(top_left, BODY_HURTBOX_SIZE)
+func _process(delta):
+	state_timer -= delta
+	
+	match current_state:
+		State.IDLE, State.RUNNING:
+			process_wander(delta)
+		State.HURT:
+			velocity.x = 0
+			if state_timer <= 0:
+				change_state(State.IDLE)
+				
+	# Animation sync (simple)
+	if sprite:
+		sprite.flip_h = !facing_right
+		if velocity.x != 0:
+			sprite.frame = (int(Time.get_ticks_msec() / 200.0) % 3)
+		else:
+			sprite.frame = 0
+
+func process_wander(delta):
+	wander_timer -= delta
+	if wander_timer <= 0:
+		wander_timer = randf_range(1.0, 3.0)
+		if randf() > 0.3:
+			wander_direction = 1.0 if randf() > 0.5 else -1.0
+			change_state(State.RUNNING)
+		else:
+			wander_direction = 0.0
+			change_state(State.IDLE)
+	
+	velocity.x = wander_direction * WANDER_SPEED
+	if wander_direction != 0:
+		facing_right = wander_direction > 0
 
 func get_sword_hitbox() -> Rect2:
-	# Using the logic from show_spectrum.gd
-	var SWORD_HITBOX_SIZE = Vector2(180, 40)
-	var SWORD_HITBOX_OFFSET = Vector2(240, 60)
+	# Keep the old hitbox logic if needed, but simplified
+	var size = Vector2(100, 40)
+	var offset = Vector2(60, 0)
+	if not facing_right: offset.x = -offset.x
 	
-	var x_dist = SWORD_HITBOX_OFFSET.x
-	var y_dist = -SWORD_HITBOX_OFFSET.y
-	
-	var x_offset = -x_dist + 270 if !flip_h else x_dist - 80
-	var y_offset = y_dist + 60 if !flip_h else y_dist + 50
-	
-	var box_center = global_position + Vector2(x_offset, y_offset)
-	var top_left = box_center - SWORD_HITBOX_SIZE
-	return Rect2(top_left, SWORD_HITBOX_SIZE)
-
-func apply_hit(amount: float, source: Node2D):
-	modulate = Color(5, 0, 0) # Flash Bright Red
-	print("Enemy hit by ", source.name, " for ", amount)
-	# Logic to reset modulation can be handled here or via timer
-	await get_tree().create_timer(0.2).timeout
-	modulate = Color(1, 1, 1)
+	var top_left = global_position + offset - (size / 2.0)
+	return Rect2(top_left, size)

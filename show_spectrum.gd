@@ -154,13 +154,24 @@ func _ready():
 	
 	# --- SETUP ENEMIES ---
 	for i in range(MAX_ENEMIES):
-		var enemy = create_spectrum_sprite()
-		enemy.set_script(load("res://enemy.gd")) # Now uses the combat-capable script
-		# Position them randomly or fixed for demo
-		enemy.position = Vector2(100 + i * 150, 100 + (i % 2) * 200)
+		var enemy = load("res://enemy.gd").new()
+		enemy.position = Vector2(100 + i * 250, 100 + (i % 2) * 200)
 		enemies.append(enemy)
 		add_child(enemy)
-	# ---------------------
+		
+		# Give a crow pet to the second enemy
+		if i == 1:
+			var enemy_crow = load("res://crow_pet.gd").new()
+			enemy_crow.assign_host(enemy)
+			# Tint the enemy crow to look more sinister
+			enemy_crow.modulate = Color(2.0, 0.5, 2.0) # Purple Sinister Crow
+			add_child(enemy_crow)
+	
+	if PhysicsManager:
+		var floor_node = find_child("Floor")
+		if floor_node:
+			PhysicsManager.floor_y = floor_node.position.y
+			
 	print("[ShowSpectrum] _ready complete.")
 
 
@@ -228,38 +239,7 @@ func _process(delta):
 	# Sync 'center' (Camera focus) to player position
 	center = player.position
 	
-	# --- ANIMATE ENEMIES ---
-	animation_timer_enemies += delta
-
-	if cooldown_up == false and animation_timer_enemies > 1.5:
-		cooldown_up = true
-
-	if cooldown_up == false and animation_timer_enemies > 1.1 and animation_timer_enemies < 1.5:
-		for enemy in enemies:
-			enemy.frame = 2 # alerts attack incoming
-
-	if animation_timer_enemies > 0.35 and cooldown_up: 
-		animation_timer_enemies = 0
-		cooldown_up = false
-		current_frame_enemies = (current_frame_enemies + 1) % 3 
-		
-		for enemy in enemies:
-			enemy.frame = current_frame_enemies 
-		
-	# Simple wandering for enemies
-	var t = Time.get_ticks_msec() / 1000.0
-	for i in range(enemies.size()):
-		var enemy = enemies[i]
-		enemy.position.x += sin(t + i) * 0.5
-		enemy.position.y += cos(t + i) * 0.5
-		
-		# --- FLIP ENEMY TO FACE PLAYER ---
-		if enemy.position.x > player.position.x:
-			enemy.flip_h = false # Face Left
-		else:
-			enemy.flip_h = true # Face Right
-		# ---------------------------------
-	# ----------------------
+	# Enemies are now self-updating entities
 
 	var data = []
 	var prev_hz = 0
@@ -327,7 +307,7 @@ func _draw():
 		
 		# 3. Draw Enemy Sword Hitbox (Red - "DANGER ZONE")
 		# ONLY draw if currently active (Frame 2) before  - > 1
-		if enemy.frame == 1:
+		if enemy.sprite.frame == 1:
 			var sword_rect = enemy.get_sword_hitbox()
 			draw_rect(sword_rect, Color(1, 0, 0, 0.8), false, 3.0)
 			# Optional: Fill it slightly to make it obvious

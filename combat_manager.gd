@@ -26,7 +26,9 @@ func unregister_entity(entity: Node2D):
 
 # --- TARGETING LOGIC ---
 
-func get_nearest_target(from_pos: Vector2, max_range: float, exclude: Node2D = null) -> Node2D:
+enum Faction { PLAYER, ENEMY, ALL }
+
+func get_nearest_target(from_pos: Vector2, max_range: float, exclude: Node2D = null, faction: Faction = Faction.ENEMY) -> Node2D:
 	var nearest: Node2D = null
 	var min_dist = max_range
 	
@@ -34,14 +36,16 @@ func get_nearest_target(from_pos: Vector2, max_range: float, exclude: Node2D = n
 		if not is_instance_valid(entity): continue
 		if entity == exclude: continue
 		
-		# TARGETING FILTER: Must be an enemy
-		var is_valid_enemy = false
-		if entity.is_in_group("Enemy"):
-			is_valid_enemy = true
-		elif entity.has_method("is_enemy") and entity.is_enemy():
-			is_valid_enemy = true
-			
-		if is_valid_enemy:
+		var is_match = false
+		match faction:
+			Faction.PLAYER:
+				is_match = not entity.is_enemy()
+			Faction.ENEMY:
+				is_match = entity.is_enemy()
+			Faction.ALL:
+				is_match = true
+				
+		if is_match:
 			var d = from_pos.distance_to(entity.global_position)
 			if d < min_dist:
 				min_dist = d
@@ -92,7 +96,7 @@ func _process_combat_collisions():
 						source.add_charge(spell_data.charge_gen)
 		
 		# ENEMY ATTACKING
-		elif source.has_method("is_enemy") and source.is_enemy() and source.frame == 1:
+		elif source.has_method("is_enemy") and source.is_enemy() and source.sprite.frame == 1:
 			var enemy_hitbox = source.get_sword_hitbox()
 			var targets = find_targets_in_hitbox(enemy_hitbox, source)
 			for target in targets:
