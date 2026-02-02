@@ -38,7 +38,10 @@ func _ready():
 	trail = Line2D.new()
 	trail.width = 10.0
 	trail.default_color = Color(1.40, 1.40, 1.40, 0.5)
-	trail.hide() 
+	trail.points = PackedVector2Array([Vector2(-15, 0), Vector2(-40, 0), Vector2(-70, 0)])
+	add_child(body_shape)
+
+	# trail.hide() 
 	
 	# Initialize dynamics via base setup
 	super._ready()
