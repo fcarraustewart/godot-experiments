@@ -80,7 +80,8 @@ func _ready():
 
 	# --- SETUP BACKGROUND (RAIN SHADER) ---
 	bg_rect = ColorRect.new()
-	bg_rect.size = Vector2(SCREEN_WIDTH, SCREEN_HEIGHT)
+	bg_rect.size = Vector2(SCREEN_WIDTH*2, SCREEN_HEIGHT*2)
+	bg_rect.position = Vector2(-SCREEN_WIDTH/2, -SCREEN_HEIGHT/2)
 	bg_rect.show_behind_parent = true # Draw BEHIND the _draw logic
 	
 	var shader = load("res://rain.gdshader")
@@ -120,18 +121,59 @@ func _ready():
 	player.set("axe_ctrl", axe) # Link to player for attack sync
 	add_child(axe)
 
-	# ---- SETUP DUST PUFFS ---
-	for i in range(8):
+	var dust_list = []
+	dust_list.append(load("res://dust_puff.gd").new())
+	dust_list[0].host = player
+	add_child(dust_list[0])
+	# ---- SETUP DUST PUFFS (Legacy Trail) ---
+	for i in range(3):
 		var dust = load("res://dust_puff.gd").new()
-		dust.host = player
+		dust.host = dust_list[i-1]
 		dust.position = player.position + Vector2(0, 30)
 		add_child(dust)
+		dust_list.append(dust)
+		
+	# ---- SETUP DUST SWARM (Flocking Particles) ---
+	var dust_swarm = BaseFlockSwarm.new()
+	dust_swarm.position = player.position + Vector2(0, -100)
 	
+	# Create a packed scene for the Dust Flock Unit
+	var dust_packer = PackedScene.new()
+	var dust_unit_node = Node2D.new()
+	dust_unit_node.set_script(load("res://flock_dust_unit.gd"))
+	dust_packer.pack(dust_unit_node)
+	
+	dust_swarm.unit_count = 8
+	dust_swarm.spawn_radius = 50.0
+	dust_swarm.separation_weight = 4.0   # High separation to keep them fluffy
+	dust_swarm.alignment_weight = 2.5
+	dust_swarm.cohesion_weight = 0.1    # Low cohesion so they drift a bit
+	dust_swarm.target_attraction_weight = 0.6
+	dust_swarm.unit_scene = dust_packer
+	dust_swarm.target_node = dust_list[0] # Follow the axe for cool effect
+	add_child(dust_swarm)
+		
 	# ---- SETUP FLOCK ---
-	#for i in range(8):
-	#	var flock = load("res://flock_unit.gd").new()
-	#	flock.position = player.position + Vector2(0, 30)
-	#	add_child(flock)
+	var swarm = BaseFlockSwarm.new()
+	swarm.position = axe.position + Vector2(0, -100) # Spawn slightly above
+	
+	# We need to package the unit script as a PackedScene, or just assign it if the script handles new()
+	# Since base_flock_swarm expects a PackedScene, let's create a temporary one or modify it to accept scripts
+	# For now, let's just make a dummy packed scene wrapper
+	var unit_packer = PackedScene.new()
+	var unit_node = Node2D.new()
+	unit_node.set_script(load("res://flock_unit.gd"))
+	unit_packer.pack(unit_node)
+	
+	swarm.unit_count = 10
+	swarm.spawn_radius = 700.0
+	swarm.separation_weight = 2.8
+	swarm.alignment_weight = 0.20
+	swarm.cohesion_weight = 4.6
+	swarm.target_attraction_weight = 0.2
+	swarm.unit_scene = unit_packer
+	swarm.target_node = axe # Follow the axe
+	add_child(swarm)
 
 	# --- SETUP HUD ---
 	game_ui = load("res://game_ui.gd").new()
@@ -298,23 +340,27 @@ func _draw():
 	# --- DRAW DEBUG HITBOXES ---
 	# 1. Draw Player Hurtbox (Green - "Don't hit me here")
 	var p_rect = player.get_hurtbox()
+	p_rect.position -= Vector2(350,250)
 	draw_rect(p_rect, Color(0, 1, 0, 0.5), false, 2.0)
 	
 	# 1b. Draw Player ATTACK Hitbox (Yellow)
 	if player.current_state == PlayerController.State.ATTACKING:
 		var p_sword_rect = player.get_sword_hitbox()
+		p_sword_rect.position -= Vector2(350,250)
 		draw_rect(p_sword_rect, Color(1, 1, 0, 0.6), false, 3.0)
 		draw_rect(p_sword_rect, Color(1, 1, 0, 0.1), true)
 	
 	for enemy in enemies:
 		# 2. Draw Enemy Hurtbox (Blue - "Enemy Body")
 		var e_rect = enemy.get_hurtbox()
+		e_rect.position -= Vector2(350,250)
 		draw_rect(e_rect, Color(0, 0.5, 1, 0.3), false, 1.0)
 		
 		# 3. Draw Enemy Sword Hitbox (Red - "DANGER ZONE")
 		# ONLY draw if currently active (Frame 2) before  - > 1
 		if enemy.sprite.frame == 1:
 			var sword_rect = enemy.get_sword_hitbox()
+			sword_rect.position -= Vector2(350,250)
 			draw_rect(sword_rect, Color(1, 0, 0, 0.8), false, 3.0)
 			# Optional: Fill it slightly to make it obvious
 			draw_rect(sword_rect, Color(1, 0, 0, 0.2), true)

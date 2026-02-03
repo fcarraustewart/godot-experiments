@@ -38,8 +38,8 @@ func _process(delta):
 	var target = host.global_position + Vector2(0, 70)
 	
 	if dynamics_sim:
-		dynamics_sim.y = target
-		global_position = dynamics_sim.xp
+		PhysicsManager.set_second_order_target(dynamics_sim.id, target)
+		global_position = PhysicsManager.get_second_order_pos(dynamics_sim.id)
 		
 		# Drift effect: slowly fade if host is not moving much
 		var host_vel = host.get("velocity") if "velocity" in host else Vector2.ZERO

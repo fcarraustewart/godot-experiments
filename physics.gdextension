@@ -1,0 +1,7 @@
+[configuration]
+entry_symbol = "physics_library_init"
+compatibility_minimum = "4.1"
+
+[libraries]
+macos.arm64.editor = "res://bin/libphysics.macos.editor.arm64.dylib"
+macos.arm64.template_debug = "res://bin/libphysics.macos.template_debug.dylib"
