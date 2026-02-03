@@ -9,6 +9,16 @@ var gravity_chains = Vector2(0, 20) # Increased for snappy platforming
 var simulated_objects = []
 var floor_y = 450.0 # Default, will be updated by game_node
 
+var native_manager = null
+
+func _ready():
+	if ClassDB.can_instantiate("NativePhysicsManager"):
+		native_manager = ClassDB.instantiate("NativePhysicsManager")
+		add_child(native_manager)
+		print("[PhysicsManager] Native GDExtension physics enabled!")
+	else:
+		print("[PhysicsManager] Running in GDScript fallback mode.")
+
 # --- REGISTRATION ---
 
 func register_character(char_node: Node2D):
@@ -42,9 +52,14 @@ func _physics_process(delta):
 				"SOFT_BODY":
 					_simulate_soft_body(body, delta)
 				"SECOND_ORDER":
-					_simulate_second_order(body, delta)
+					if not native_manager:
+						_simulate_second_order(body, delta)
+
 
 func register_second_order(id: String, initial_pos: Vector2, f: float, zeta: float, r: float):
+	if native_manager:
+		return native_manager.register_second_order(id, initial_pos, f, zeta, r)
+		
 	var k1 = zeta / (PI * f)
 	var k2 = 1.0 / (pow(2.0 * PI * f, 2))
 	var k3 = r * zeta / (2.0 * PI * f)
@@ -163,20 +178,40 @@ func unregister_soft_body(id: String):
 			simulated_objects.remove_at(i)
 
 func unregister_object(body):
-	simulated_objects.erase(body)
+	if native_manager and body is Dictionary and body.get("type") == "SECOND_ORDER":
+		native_manager.unregister_object(body)
+	else:
+		simulated_objects.erase(body)
 
 func get_second_order_pos(id: String) -> Vector2:
+	if native_manager:
+		return native_manager.get_second_order_pos(id)
 	for body in simulated_objects:
 		if body is Dictionary and body.get("id") == id:
 			return body.xp
 	return Vector2.ZERO
 
+func get_second_order_velocity(id: String) -> Vector2:
+	if native_manager:
+		return native_manager.get_second_order_velocity(id)
+	for body in simulated_objects:
+		if body is Dictionary and body.get("id") == id:
+			return body.xd
+	return Vector2.ZERO
+
 func set_second_order_target(id: String, new_y: Vector2):
+	if native_manager:
+		native_manager.set_second_order_target(id, new_y)
+		return
 	for body in simulated_objects:
 		if body is Dictionary and body.get("id") == id:
 			body.y = new_y
 
 func update_dynamics_for_sim(sim_dict: Dictionary, f: float, zeta: float, r: float):
+	if native_manager and sim_dict.get("type") == "SECOND_ORDER":
+		native_manager.update_dynamics_for_sim(sim_dict, f, zeta, r)
+		return
+		
 	sim_dict.k1 = zeta / (PI * f)
 	sim_dict.k2 = 1.0 / (pow(2.0 * PI * f, 2))
 	sim_dict.k3 = r * zeta / (2.0 * PI * f)

@@ -78,11 +78,11 @@ func _process(delta):
 			stop_attack()
 	
 	if dynamics_sim:
-		dynamics_sim.y = target_pos + current_offset
-		global_position = dynamics_sim.xp
+		PhysicsManager.set_second_order_target(dynamics_sim.id, target_pos + current_offset)
+		global_position = PhysicsManager.get_second_order_pos(dynamics_sim.id)
 		
 		# Organic Rotation based on Velocity/Movement
-		var vel = dynamics_sim.xd
+		var vel = PhysicsManager.get_second_order_velocity(dynamics_sim.id)
 		var target_rot = vel.x * 0.001
 		if is_procedural_attacking:
 			target_rot += attack_angle

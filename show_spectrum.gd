@@ -121,12 +121,18 @@ func _ready():
 	add_child(axe)
 
 	# ---- SETUP DUST PUFFS ---
-	for i in range(3):
+	for i in range(8):
 		var dust = load("res://dust_puff.gd").new()
 		dust.host = player
-		dust.position = player.position + Vector2(0, 70)
+		dust.position = player.position + Vector2(0, 30)
 		add_child(dust)
 	
+	# ---- SETUP FLOCK ---
+	#for i in range(8):
+	#	var flock = load("res://flock_unit.gd").new()
+	#	flock.position = player.position + Vector2(0, 30)
+	#	add_child(flock)
+
 	# --- SETUP HUD ---
 	game_ui = load("res://game_ui.gd").new()
 	game_ui.player_node = player

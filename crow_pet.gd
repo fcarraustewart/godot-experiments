@@ -81,11 +81,11 @@ func process_orbit(delta):
 	var desired_pos = host.position + Vector2(x_off, y_off - 60)
 	
 	if dynamics_sim:
-		dynamics_sim.y = desired_pos
-		global_position = dynamics_sim.xp
+		PhysicsManager.set_second_order_target(dynamics_sim.id, desired_pos)
+		global_position = PhysicsManager.get_second_order_pos(dynamics_sim.id)
 		
 		# Rotate based on velocity
-		var vel = dynamics_sim.xd
+		var vel = PhysicsManager.get_second_order_velocity(dynamics_sim.id)
 		if vel.length() > 50:
 			rotation = lerp_angle(rotation, vel.angle(), 10.0 * delta)
 		else:
@@ -97,14 +97,15 @@ func process_attack_dive(delta):
 		return
 		
 	if dynamics_sim:
-		dynamics_sim.y = target_entity.global_position
-		global_position = dynamics_sim.xp
+		PhysicsManager.set_second_order_target(dynamics_sim.id, target_entity.global_position)
+		global_position = PhysicsManager.get_second_order_pos(dynamics_sim.id)
 		look_at(target_entity.global_position)
 		
 		if global_position.distance_to(target_entity.global_position) < 40.0:
 			hit_target(target_entity)
 			current_pet_state = PetState.RETURN
-			dynamics_sim.xd = -dynamics_sim.xd * 0.5 # Bounce
+			# No easy way to set velocity directly in C++ yet, so we skip the bounce for now or add a setter
+			# dynamics_sim.xd = -dynamics_sim.xd * 0.5 # Bounce
 	else:
 		# Fallback
 		var dir = (target_entity.global_position - global_position).normalized()
@@ -115,14 +116,31 @@ func process_attack_dive(delta):
 			current_pet_state = PetState.RETURN
 
 func process_return(delta):
+	# Return to a point near the host before resuming orbit
 	if not is_instance_valid(host): return
 	
-	var dest = host.position + Vector2(0, -50) 
-	var dir = (dest - global_position).normalized()
-	var dist = global_position.distance_to(dest)
+	var return_pos = host.position + Vector2(0, -60)
+	
+	if dynamics_sim:
+		PhysicsManager.set_second_order_target(dynamics_sim.id, return_pos)
+		global_position = PhysicsManager.get_second_order_pos(dynamics_sim.id)
+		
+		# Rotate based on velocity
+		var vel = PhysicsManager.get_second_order_velocity(dynamics_sim.id)
+		if vel.length() > 50:
+			rotation = lerp_angle(rotation, vel.angle(), 10.0 * delta)
+		
+		if global_position.distance_to(return_pos) < 50.0:
+			current_pet_state = PetState.ORBIT
+			attack_timer = attack_cooldown + randf()
+		return
+
+	# Fallback (Legacy movement)
+	var dir = (return_pos - global_position).normalized()
+	var dist = global_position.distance_to(return_pos)
 	
 	global_position += dir * RETURN_SPEED * delta
-	look_at(dest)
+	look_at(return_pos)
 	
 	if dist < 20.0:
 		current_pet_state = PetState.ORBIT
