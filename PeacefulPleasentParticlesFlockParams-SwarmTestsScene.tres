@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="FlockParams" load_steps=2 format=3 uid="uid://cgu0pp0jinblp"]
+
+[ext_resource type="Script" path="res://flock_params.gd" id="1_bunuh"]
+
+[resource]
+script = ExtResource("1_bunuh")
+unit_count = 12
+spawn_radius = 200.0
+separation_weight = 1.04083e-16
+alignment_weight = 2.21
+cohesion_weight = 1.04083e-16
+target_attraction_weight = 1.04083e-16
+perception_radius = 1.0
+frequency = 2.0
+damping = 0.002
+response = 0.03
