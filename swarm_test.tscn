@@ -1,0 +1,23 @@
+[gd_scene load_steps=4 format=3 uid="uid://du5yu5m5o5uik"]
+
+[ext_resource type="Script" path="res://Camera2DTests.gd" id="1_1fh14"]
+[ext_resource type="Script" path="res://flock_params.gd" id="2_bngfp"]
+
+[sub_resource type="Resource" id="Resource_unksf"]
+script = ExtResource("2_bngfp")
+unit_count = 12
+spawn_radius = 200.0
+separation_weight = 1.04083e-16
+alignment_weight = 1.04083e-16
+cohesion_weight = 5.0
+target_attraction_weight = 1.04083e-16
+perception_radius = 300.0
+frequency = 0.11
+damping = 1.0
+response = 2.08165e-12
+
+[node name="SwarmTestsScene" type="Node2D"]
+
+[node name="Camera2D" type="Camera2D" parent="."]
+script = ExtResource("1_1fh14")
+swarm_params = SubResource("Resource_unksf")

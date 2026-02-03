@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="FlockParams" load_steps=2 format=3 uid="uid://ddc7g6kaw48vq"]
+
+[ext_resource type="Script" path="res://flock_params.gd" id="1_p6wbp"]
+
+[resource]
+script = ExtResource("1_p6wbp")
+unit_count = 20
+spawn_radius = 500.0
+separation_weight = 3.611
+alignment_weight = -0.159
+cohesion_weight = -0.485
+target_attraction_weight = -1.192
+perception_radius = 150.0
+frequency = 0.2
+damping = 0.6
+response = 0.0
