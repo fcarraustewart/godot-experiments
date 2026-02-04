@@ -29,14 +29,19 @@ func _process(delta: float) -> void:
 	if swarm_params:
 		for s in active_swarms:
 			if is_instance_valid(s):
+				# Flocking
 				s.separation_weight = swarm_params.separation_weight
 				s.alignment_weight = swarm_params.alignment_weight
 				s.cohesion_weight = swarm_params.cohesion_weight
 				s.target_attraction_weight = swarm_params.target_attraction_weight
 				s.perception_radius = swarm_params.perception_radius
+				# Frquency/Damping/Response
 				s.frequency = swarm_params.frequency
 				s.damping = swarm_params.damping
 				s.response = swarm_params.response
+				# Visual
+				s.unit_count = swarm_params.unit_count
+				s.spawn_radius = swarm_params.spawn_radius
 			
 	if Input.is_action_just_pressed("mouse"):
 		print("spawn swarm AT MOUSE")
@@ -46,7 +51,6 @@ func _process(delta: float) -> void:
 
 		# ---- SETUP FLOCK ---
 		var swarm = BaseFlockSwarm.new()
-		
 		# Flocking
 		swarm.separation_weight = swarm_params.separation_weight
 		swarm.alignment_weight = swarm_params.alignment_weight
@@ -60,9 +64,10 @@ func _process(delta: float) -> void:
 		swarm.frequency = swarm_params.frequency
 		swarm.damping = swarm_params.damping
 		swarm.response = swarm_params.response
+		# Spawn on position mouse click
+		swarm.position = icon_instance.position 
 		
-		swarm.position = icon_instance.position # Spawn slightly above
-		
+		# --- Initialize Flock ---
 		# We need to package the unit script as a PackedScene, or just assign it if the script handles new()
 		# Since base_flock_swarm expects a PackedScene, let's create a temporary one or modify it to accept scripts
 		# For now, let's just make a dummy packed scene wrapper
