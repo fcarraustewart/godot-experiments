@@ -1,7 +1,7 @@
 [gd_scene load_steps=3 format=3 uid="uid://du5yu5m5o5uik"]
 
 [ext_resource type="Script" path="res://Camera2DTests.gd" id="1_1fh14"]
-[ext_resource type="Resource" uid="uid://cgu0pp0jinblp" path="res://PeacefulPleasentParticlesFlockParams-SwarmTestsScene.tres" id="2_ch2od"]
+[ext_resource type="Resource" uid="uid://cgu0pp0jinblp" path="res://FlockParamsSwarmTestScene.tres" id="2_ch2od"]
 
 [node name="SwarmTestsScene" type="Node2D"]
 

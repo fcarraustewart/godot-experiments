@@ -10,6 +10,7 @@ var wander_direction: float = 1.0
 
 func _ready():
 	super._ready()
+
 	add_to_group("Enemy")
 	
 	# Create sprite if not already present
@@ -61,5 +62,5 @@ func get_sword_hitbox() -> Rect2:
 	var offset = Vector2(60, 0)
 	if not facing_right: offset.x = -offset.x
 	
-	var top_left = global_position + offset - (size / 2.0)
+	var top_left = position + offset - (size / 2.0)
 	return Rect2(top_left, size)

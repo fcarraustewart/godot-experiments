@@ -17,6 +17,7 @@ var aggro_range: float = 600.0
 var attack_cooldown: float = 2.0
 
 func _ready():
+	global_position = position
 	_setup_dynamics()
 
 func _exit_tree():
@@ -47,7 +48,7 @@ func find_target() -> Node2D:
 					return t
 			
 	# 2. SECONDARY: Nearest opposing entity in AGGRO range
-	var nearest = CombatManager.get_nearest_target(host.global_position, aggro_range, host, target_faction)
+	var nearest = CombatManager.get_nearest_target(host.position, aggro_range, host, target_faction)
 	return nearest
 
 func start_attack(target: Node2D):

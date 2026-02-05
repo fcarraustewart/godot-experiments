@@ -86,7 +86,7 @@ func try_cast_chain_lightning(source: Vector2):
 		var target = CombatManager.get_nearest_target(source, CHAIN_RANGE, get_parent())
 		if target:
 			start_charging(source, target)
-			return target.global_position
+			return target.position
 	return Vector2.ZERO
 
 func start_charging(source: Vector2, target):

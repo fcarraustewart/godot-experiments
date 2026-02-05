@@ -11,7 +11,9 @@ func initialize_flock_unit(manager: BaseFlockSwarm, index: int):
 	id = "flock_" + str(get_instance_id()) + "_" + str(index)
 	
 	# Register with Native Physics Manager (Second Order Dynamics)
+	# Register with Native Physics Manager (Second Order Dynamics)
 	# This gives the unit its "weight" and organic movement
+	# IMPORTANT: PhysicsManager works in GLOBAL SPACE.
 	dynamics_sim = PhysicsManager.register_second_order(
 		id, 
 		global_position, 

@@ -22,7 +22,7 @@ func _ready():
 	base_zoom = zoom
 	target_zoom = base_zoom
 	if is_instance_valid(target):
-		global_position = target.global_position + target_offset
+		position = target.position + target_offset
 
 func setup(player_node: Node2D):
 	target = player_node
@@ -30,7 +30,7 @@ func setup(player_node: Node2D):
 	set_physics_process(true)
 	print("[CameraDebug] Target setup: ", target != null, " | Processing: ", is_processing())
 	if target:
-		global_position = target.global_position + target_offset
+		position = target.position + target_offset
 
 func add_shake(strength: float):
 	shake_strength = strength

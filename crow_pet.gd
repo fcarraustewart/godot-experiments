@@ -78,7 +78,7 @@ func process_orbit(delta):
 	var x_off = cos(orbit_angle) * ORBIT_RADIUS
 	var y_off = sin(orbit_angle) * (ORBIT_RADIUS * 0.5) + sin(orbit_angle * 2.0) * 20.0 # Bobbing
 	
-	var desired_pos = host.position + Vector2(x_off, y_off - 60)
+	var desired_pos = host.global_position + Vector2(x_off, y_off - 60)
 	
 	if dynamics_sim:
 		PhysicsManager.set_second_order_target(dynamics_sim.id, desired_pos)
@@ -119,7 +119,7 @@ func process_return(delta):
 	# Return to a point near the host before resuming orbit
 	if not is_instance_valid(host): return
 	
-	var return_pos = host.position + Vector2(0, -60)
+	var return_pos = host.global_position + Vector2(0, -60)
 	
 	if dynamics_sim:
 		PhysicsManager.set_second_order_target(dynamics_sim.id, return_pos)

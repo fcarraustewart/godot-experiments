@@ -94,7 +94,7 @@ func _ready():
 	
 	# --- SETUP FLOOR ---
 	var floor_rect = ColorRect.new()
-	floor_rect.size = Vector2(SCREEN_WIDTH, 40)
+	floor_rect.size = Vector2(SCREEN_WIDTH*8, 200)
 	floor_rect.position = Vector2(0, SCREEN_HEIGHT - 50)
 	floor_rect.color = Color(0.1, 0.1, 0.15, 0.8) # Dark blueish gray
 	floor_rect.name = "Floor"
@@ -105,11 +105,12 @@ func _ready():
 	player = load("res://player_controller.gd").new()
 	player.game_node = self
 	player.position = center
+	player.global_position = player.position
 	add_child(player)
 	# -------------------------------
 	
 	# ---- SETUP CROW PET ---
-	for i in range(2):
+	for i in range(1):
 		var crow = load("res://crow_pet.gd").new()
 		crow.position = player.position + Vector2(-50 * (i+1), -50)
 		crow.assign_host(player)
@@ -135,7 +136,7 @@ func _ready():
 		
 	# ---- SETUP DUST SWARM (Flocking Particles) ---
 	var dust_swarm = BaseFlockSwarm.new()
-	dust_swarm.position = player.position + Vector2(0, -100)
+	dust_swarm.position = player.position + Vector2(0, -10)
 	
 	# Create a packed scene for the Dust Flock Unit
 	var dust_packer = PackedScene.new()
@@ -144,11 +145,14 @@ func _ready():
 	dust_packer.pack(dust_unit_node)
 	
 	dust_swarm.unit_count = 8
-	dust_swarm.spawn_radius = 50.0
-	dust_swarm.separation_weight = 4.0   # High separation to keep them fluffy
-	dust_swarm.alignment_weight = 2.5
-	dust_swarm.cohesion_weight = 0.1    # Low cohesion so they drift a bit
-	dust_swarm.target_attraction_weight = 0.6
+	dust_swarm.spawn_radius = 20
+	dust_swarm.separation_weight = 2.101   # High separation to keep them fluffy
+	dust_swarm.alignment_weight = -0.61
+	dust_swarm.cohesion_weight = -0.2    # Low cohesion so they drift a bit
+	dust_swarm.target_attraction_weight = 1.0
+	dust_swarm.frequency = 1.50
+	dust_swarm.damping = 1.00
+	dust_swarm.response = 0.0
 	dust_swarm.unit_scene = dust_packer
 	dust_swarm.target_node = dust_list[0] # Follow the axe for cool effect
 	add_child(dust_swarm)
@@ -165,12 +169,15 @@ func _ready():
 	unit_node.set_script(load("res://flock_unit.gd"))
 	unit_packer.pack(unit_node)
 	
-	swarm.unit_count = 10
-	swarm.spawn_radius = 700.0
-	swarm.separation_weight = 2.8
-	swarm.alignment_weight = 0.20
-	swarm.cohesion_weight = 4.6
-	swarm.target_attraction_weight = 0.2
+	swarm.unit_count = 4
+	swarm.spawn_radius = 0
+	swarm.separation_weight = 0.401   # High separation to keep them fluffy
+	swarm.alignment_weight = -0.61
+	swarm.cohesion_weight = -0.2    # Low cohesion so they drift a bit
+	swarm.target_attraction_weight = 1.40
+	swarm.frequency = 16.50
+	swarm.damping = 1.20
+	swarm.response = 0.0
 	swarm.unit_scene = unit_packer
 	swarm.target_node = axe # Follow the axe
 	add_child(swarm)
@@ -293,7 +300,7 @@ func _process(delta):
 	var prev_hz = 0
 	
 	# Run your color/math logic
-	_other_process_my_stuff()
+	# _process_my_orbit_circles()
 	
 	# --- SPECTRUM LOGIC ---
 	if spectrum:
@@ -323,7 +330,7 @@ func _process(delta):
 # -----------------------------
 
 
-func _other_process_my_stuff():
+func _process_my_orbit_circles():
 	# Increment counters
 	color_modulation += 10
 	circle_x += 1
@@ -335,32 +342,32 @@ func _other_process_my_stuff():
 
 
 func _draw():
-	_draw_my_stuff();
+	# _draw_my_orbit_circles();
 	
 	# --- DRAW DEBUG HITBOXES ---
 	# 1. Draw Player Hurtbox (Green - "Don't hit me here")
 	var p_rect = player.get_hurtbox()
-	p_rect.position -= Vector2(350,250)
+
 	draw_rect(p_rect, Color(0, 1, 0, 0.5), false, 2.0)
 	
 	# 1b. Draw Player ATTACK Hitbox (Yellow)
 	if player.current_state == PlayerController.State.ATTACKING:
 		var p_sword_rect = player.get_sword_hitbox()
-		p_sword_rect.position -= Vector2(350,250)
+
 		draw_rect(p_sword_rect, Color(1, 1, 0, 0.6), false, 3.0)
 		draw_rect(p_sword_rect, Color(1, 1, 0, 0.1), true)
 	
 	for enemy in enemies:
 		# 2. Draw Enemy Hurtbox (Blue - "Enemy Body")
 		var e_rect = enemy.get_hurtbox()
-		e_rect.position -= Vector2(350,250)
+
 		draw_rect(e_rect, Color(0, 0.5, 1, 0.3), false, 1.0)
 		
 		# 3. Draw Enemy Sword Hitbox (Red - "DANGER ZONE")
 		# ONLY draw if currently active (Frame 2) before  - > 1
 		if enemy.sprite.frame == 1:
 			var sword_rect = enemy.get_sword_hitbox()
-			sword_rect.position -= Vector2(350,250)
+
 			draw_rect(sword_rect, Color(1, 0, 0, 0.8), false, 3.0)
 			# Optional: Fill it slightly to make it obvious
 			draw_rect(sword_rect, Color(1, 0, 0, 0.2), true)
@@ -406,7 +413,7 @@ func _draw():
 	draw_set_transform(Vector2.ZERO, 0, Vector2(1, 1)) 
 
 
-func _draw_my_stuff():
+func _draw_my_orbit_circles():
 	# background(#1BB1F5) removed in favor of shader
 	# draw_rect(Rect2(0, 0, w_window * 2, h_window), Color("1BB1F5"), true)
 	

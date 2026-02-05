@@ -9,6 +9,7 @@ const Z = 1.2
 const R = 0.0
 
 func _ready():
+	global_position = position
 	# Create a soft cloud shape
 	var cloud = Polygon2D.new()
 	var pts = []
@@ -26,6 +27,7 @@ func _ready():
 			global_position,
 			F, Z, R
 		)
+
 
 func _exit_tree():
 	if PhysicsManager and dynamics_sim:

@@ -152,13 +152,6 @@ func _on_struck():
 	if current_state != State.JUMPING and current_state != State.DASHING:
 		if current_state == State.CASTING:
 			emit_signal("cast_interrupted", Reason.HIT)
-		
-		var active = get_active_sprite()
-		if active:
-			active.modulate = Color(10, 10, 10) # Flash bright
-			await get_tree().create_timer(0.1).timeout
-			active.modulate = active.modulate.lerp(Color.WHITE, 0.1)
-
 		hit_count = 0
 
 func _on_rooted(duration: float):
@@ -199,9 +192,9 @@ func _ready():
 	super._ready()
 	# 1. Idle Sprite
 	sprite = Sprite2D.new()
-	sprite.texture = load("res://art/MainCharacter.png")
+	sprite.texture = load("res://art/Inanimate-patas.png")
 	sprite.region_enabled = false
-	sprite.hframes = 3
+	sprite.hframes = 1
 	sprite.vframes = 1
 	sprite.visible = true
 	add_child(sprite)
@@ -276,7 +269,7 @@ func _ready():
 	crow_pet = load("res://crow_pet.gd").new()
 	crow_pet.host = self # Orbit this node
 	# Crow usually added to main scene to avoid rotation inheritance issues, 
-	# but adding to player is fine if we manage rotation carefully or use global_position
+	# but adding to player is fine if we manage rotation carefully or use position
 	# User previous code added it to main scene. Let's keep it consistent if possible, 
 	# but for encapsulation, adding to Player is better. 
 	# BUT `crow_pet.gd` uses `position` relative to parent. If parent is player, it orbits player correctly.
@@ -347,6 +340,8 @@ func _process(delta):
 			process_stunned(delta)
 		State.INTERRUPTED:
 			process_interrupted(delta)
+		State.HURT:
+			process_hurt(delta) # Stays here but is avoided in change_state
 		State.CASTING_COMPLETE:
 			# Temporary state to handle post-cast logic if needed
 			process_casting_complete(delta)
@@ -357,65 +352,7 @@ func _process(delta):
 	# position += velocity * delta
 	
 	# Animation & Visuals
-	update_animation(delta)
-	
-	_hide_all_sprites()
-	var active = get_active_sprite()
-	if active: 
-		active.visible = true
-		active.flip_h = not facing_right
-		# active.position.y = -z_axis if z_axis > 0 else 0 # REMOVED: Now using real Y gravity
-		active.position.y = 0
-		
-		# --- BULLETPROOF REGION-BOUNDED hframes ---
-		# We define the 'Real Area' and let Godot's hframes divide only THAT.
-		active.region_enabled = true
-		var tex = active.texture
-		if tex:
-			var total_w = tex.get_width()
-			var total_h = tex.get_height()
-			
-			# Determine frame count and optional junk padding
-			var h_cnt = 1
-			var junk_x = 0
-			
-			if active == running: 
-				h_cnt = running.hframes 
-				junk_x = 0
-			if active == jumping:
-				h_cnt = jumping.hframes 
-			if active == dash:
-				h_cnt = dash.hframes 
-			if active == attack1:
-				h_cnt = attack1.hframes 
-			elif active == casting: 
-				h_cnt = casting.hframes
-			elif active == casting_success: 
-				h_cnt = casting.hframes
-			elif active == sprite: 
-				h_cnt = sprite.hframes
-			
-			# Define the playable region
-			active.region_rect = Rect2(0, 0, total_w - junk_x, total_h)
-			active.hframes = h_cnt
-			active.vframes = 1
-			# Frame index is set in update_animation()
-
-			# --- USER DEBUG PRINT ---
-			if Engine.get_process_frames() % 60 == 0:
-				print("[PlayerPhysics] OnFloor: %s | VelY: %.1f | State: %s" % [
-					is_on_floor_physics,
-					velocity.y,
-					State.keys()[current_state]
-				])
-		
-		# Special colors for states
-		if active == casting or active == casting_success:
-			active.modulate = Color(1.0, 0.6, 1.9, 1.0)
-		elif current_state == State.STUNNED:
-			active.modulate = Color(0.5, 0.5, 0.5)
-		else:
-			active.modulate = Color.WHITE
+	update_animation(delta)	
 
 # --- STATE HANDLERS ---
 
@@ -428,6 +365,13 @@ func process_running(_delta):
 	check_movement_input()
 	check_action_input()
 	update_aim_indicator()
+
+func process_hurt(delta):
+	check_movement_input()
+	check_action_input()
+	update_aim_indicator()
+	if state_timer <= 0:
+		change_state(State.IDLE)
 
 func process_attacking(delta):
 	velocity = Vector2.ZERO # Root while attacking? Or allow slide? Let's root for impact.
@@ -539,7 +483,10 @@ func check_movement_input():
 		current_horizontal_speed *= active_slow_factor
 
 	# Set the velocity
-	velocity.x = move_dir * current_horizontal_speed
+	if(current_state != State.CASTING):
+		velocity.x = move_dir * current_horizontal_speed
+	else:
+		velocity.x = 0 # Rooted during casting
 
 	# Update Animation States
 	if move_dir != 0:
@@ -638,16 +585,86 @@ func _try_start_cast(ctrl, spell_id: String):
 		change_state(State.CASTING)
 
 # --- UTILS ---
+func sprite_swap():
+	_hide_all_sprites()
+	var active = get_active_sprite()
+	if active: 
+		active.visible = true
+		active.flip_h = not facing_right
+		active.position.y = 0
+		
+		# --- BULLETPROOF REGION-BOUNDED hframes ---
+		# We define the 'Real Area' and let Godot's hframes divide only THAT.
+		active.region_enabled = true
+		var tex = active.texture
+		if tex:
+			var total_w = tex.get_width()
+			var total_h = tex.get_height()
+			
+			# Determine frame count and optional junk padding
+			var h_cnt = 1
+			var junk_x = 0
+			
+			if active == running: 
+				h_cnt = running.hframes 
+				junk_x = 0
+			if active == jumping:
+				h_cnt = jumping.hframes 
+			if active == dash:
+				h_cnt = dash.hframes 
+			if active == attack1:
+				h_cnt = attack1.hframes 
+			elif active == casting: 
+				h_cnt = casting.hframes
+			elif active == casting_success: 
+				h_cnt = casting_success.hframes
+			elif active == sprite: 
+				h_cnt = sprite.hframes
+			
+			# Define the playable region
+			active.region_rect = Rect2(0, 0, total_w - junk_x, total_h)
+			active.hframes = h_cnt
+			active.vframes = 1
+			# Frame index is set in update_animation()
+
+			# --- USER DEBUG PRINT ---
+			if Engine.get_process_frames() % 60 == 0:
+				print("[PlayerPhysics] OnFloor: %s | VelY: %.1f | State: %s" % [
+					is_on_floor_physics,
+					velocity.y,
+					State.keys()[current_state]
+				])
+		
+		# Special colors for states
+		if active == casting or active == casting_success:
+			active.modulate = Color(1.0, 0.6, 1.9, 1.0)
+		elif current_state == State.STUNNED:
+			active.modulate = Color(0.5, 0.5, 0.5)
+		else:
+			active.modulate = Color.WHITE
+
+func reset_animations():
+	sprite_swap()
+	for sprite in [sprite, casting, casting_success, running, jumping, dash, attack1]:
+		sprite.frame = 0
 
 func change_state(new_state):
 	if current_state == new_state: return
 			
 	# Exit Logic
+	if new_state == State.HURT:
+		emit_signal("struck")
+		return
+
+	reset_animations() # Stop all animations until we set the correct one for the new state
+
 	if current_state == State.CASTING or current_state == State.CASTING_COMPLETE:
 		emit_signal("cast_finished")
 		if active_skill_ctrl and active_skill_ctrl.is_casting:
 			active_skill_ctrl.interrupt_charging()
 		player_cast_bar.visible = false
+		casting_success.frame = 0
+		casting.frame = 0
 
 	if current_state == State.DASHING or current_state == State.JUMPING:
 		# Reset any movement action-specific visuals
@@ -703,6 +720,7 @@ func get_active_sprite() -> Sprite2D:
 		_: return sprite
 
 func update_animation(_delta):
+	sprite_swap()
 	# Frame Logic only. 
 	# We set .frame here, and _process uses it to calculate region_rect.
 	match current_state:
@@ -711,15 +729,17 @@ func update_animation(_delta):
 			attack1.frame = (int(t)) % attack1.hframes
 
 		State.CASTING_COMPLETE:
-			var t = Time.get_ticks_msec() / 30.0
-			var h_cnt = 8
+			var h_cnt : int = 0
 			if active_skill_ctrl:
 				var data = DataManager.get_spell(active_skill_ctrl.get_spell_id())
 				if data: h_cnt = data.get("success_frames", 8)
-			casting_success.frame = int(t) % h_cnt
+			if(casting_success.frame < h_cnt-1): 
+				var t : int = int(Time.get_ticks_msec() / 30.0)
+				casting_success.frame = int(t) % (h_cnt)
+				print("Casting Success Frame: %d / %d" % [casting_success.frame, h_cnt])
 		State.CASTING:
 			var t = Time.get_ticks_msec() / 100.0
-			var h_cnt = 22
+			var h_cnt : int = 0
 			if active_skill_ctrl:
 				var data = DataManager.get_spell(active_skill_ctrl.get_spell_id())
 				if data: h_cnt = data.get("casting_frames", 22)
@@ -758,7 +778,7 @@ func get_sword_hitbox() -> Rect2:
 	var offset = PLAYER_SWORD_HITBOX_OFFSET
 	if not facing_right: offset.x = -offset.x
 	
-	var box_center = global_position + Vector2(offset.x, offset.y)
+	var box_center = position + Vector2(offset.x, offset.y)
 	
 	var top_left = box_center - (SWORD_HITBOX_SIZE / 2.0)
 	return Rect2(top_left, SWORD_HITBOX_SIZE)

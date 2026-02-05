@@ -23,7 +23,7 @@ var active_swarms: Array[BaseFlockSwarm] = []
 
 # Called every frame. 'delta' is the elapsed time since the previous frame.
 func _process(delta: float) -> void:
-	# global_position = global_position + sin(delta * TAU) * 50 * Vector2(1, 0)
+	# position = position + sin(delta * TAU) * 50 * Vector2(1, 0)
 	
 	# LIVE UPDATE: Apply editor properties to all active swarms
 	if swarm_params:

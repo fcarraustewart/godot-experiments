@@ -24,6 +24,7 @@ var members: Array = []
 var target_node: Node2D = null
 
 func _ready():
+	global_position = position
 	spawn_flock()
 
 func spawn_flock():

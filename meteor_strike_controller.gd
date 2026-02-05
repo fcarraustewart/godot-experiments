@@ -37,8 +37,8 @@ func try_cast(source_pos: Vector2) -> Vector2:
 			is_casting = true
 			cast_timer = 0.0
 			current_target = target
-			_show_targeting_glitch(target.global_position)
-			return target.global_position
+			_show_targeting_glitch(target.position)
+			return target.position
 	return Vector2.ZERO
 
 func _show_targeting_glitch(pos: Vector2):
@@ -73,7 +73,7 @@ func interrupt_charging():
 func _fire_meteor():
 	if not is_instance_valid(current_target): return
 	
-	var target_pos = current_target.global_position
+	var target_pos = current_target.position
 	var start_pos = target_pos + Vector2(randf_range(-400, 400), -800)
 	
 	# 1. SETUP HEAD (Satellite Core)
@@ -151,7 +151,7 @@ func _process(delta):
 				if wire.points.size() > 5: wire.remove_point(0)
 
 			# Check Impact
-			if is_instance_valid(current_target) and pos.distance_to(current_target.global_position) < 80:
+			if is_instance_valid(current_target) and pos.distance_to(current_target.position) < 80:
 				_impact(pos)
 			elif pos.y > 1500: # Cleanup
 				_cleanup()

@@ -16,6 +16,7 @@ var is_on_floor_physics: bool = false
 const BODY_HURTBOX_SIZE = Vector2(120, 140)
 
 func _ready():
+	global_position = position
 	_register_with_managers()
 
 func _exit_tree():
@@ -41,7 +42,7 @@ func is_enemy() -> bool:
 	return false
 
 func get_hurtbox() -> Rect2:
-	var top_left = global_position - (BODY_HURTBOX_SIZE / 2.0)
+	var top_left = position - (BODY_HURTBOX_SIZE / 2.0)
 	return Rect2(top_left, BODY_HURTBOX_SIZE)
 
 func apply_hit(amount: float, source: Node2D):

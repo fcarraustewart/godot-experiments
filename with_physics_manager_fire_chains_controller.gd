@@ -58,7 +58,7 @@ func try_cast(start_pos: Vector2):
 		var target = CombatManager.get_nearest_target(start_pos, RANGE, get_parent())
 		if target:
 			start_charging(target, start_pos)
-			return target.global_position
+			return target.position
 	return Vector2.ZERO
 
 func cast(casting_elapsed_time: float, from_above: bool = false):
@@ -100,7 +100,7 @@ func start_charging(target, start_pos: Vector2):
 	var points = PackedVector2Array()
 	for i in range(4):
 		var angle = i * TAU / 32.0
-		points.append((target.global_position - start_pos).normalized() + Vector2(cos(angle), sin(angle)) * 50.0)
+		points.append((target.position - start_pos).normalized() + Vector2(cos(angle), sin(angle)) * 50.0)
 	ring.points = points
 	game_node.player.add_child(ring)
 	

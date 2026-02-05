@@ -46,7 +46,7 @@ func get_nearest_target(from_pos: Vector2, max_range: float, exclude: Node2D = n
 				is_match = true
 				
 		if is_match:
-			var d = from_pos.distance_to(entity.global_position)
+			var d = from_pos.distance_to(entity.position)
 			if d < min_dist:
 				min_dist = d
 				nearest = entity
@@ -113,12 +113,12 @@ func request_interaction(source: Node2D, target: Node2D, type: String, data: Dic
 		return false
 
 	# 1. RANGE RE-VALIDATION (Crucial for finishing casts)
-	var distance = source.global_position.distance_to(target.global_position)
+	var distance = source.position.distance_to(target.position)
 	var max_range = data.get("range", 9999.0)
 	var proc = data.get("proc", false)
 
 	if distance > max_range:
-		_create_floating_text(source.global_position, "OUT OF RANGE!", Color.YELLOW)
+		_create_floating_text(source.position, "OUT OF RANGE!", Color.YELLOW)
 		_notify_fail(source, "OUT_OF_RANGE")
 		return false
 
@@ -130,7 +130,7 @@ func request_interaction(source: Node2D, target: Node2D, type: String, data: Dic
 	if proc: 
 		var type_of_proc = data.get("type_of_proc", "generic")
 		print("Proc flag!!: ", type_of_proc)
-		_create_floating_text(target.global_position, type_of_proc.to_upper() + "!", Color.YELLOW)
+		_create_floating_text(target.position, type_of_proc.to_upper() + "!", Color.YELLOW)
 
 	# 3. INTERACTION LOGIC
 	match type:
@@ -148,7 +148,7 @@ func _handle_damage(source, target, data):
 	
 	if target.has_method("apply_hit"):
 		target.apply_hit(amount, source)
-		_create_floating_text(target.global_position, "HIT!", Color.RED)
+		_create_floating_text(target.position, "HIT!", Color.RED)
 		_notify_success(source, "HIT_SUCCESS", {"amount": amount, "target": target})
 	else:
 		_notify_fail(source, "TARGET_INVALID")
@@ -159,14 +159,14 @@ func _handle_crowd_control(source, target, data):
 	
 	if target.has_method("apply_" + cc_type):
 		target.call("apply_" + cc_type, duration, data.get("amount", 1.0))
-		_create_floating_text(target.global_position, cc_type + "ed!", Color.CYAN)
+		_create_floating_text(target.position, cc_type + "ed!", Color.CYAN)
 		emit_signal("effect_applied", target, cc_type, duration)
 		_notify_success(source, "CC_SUCCESS", {"type": cc_type})
 
 func _handle_interrupt(source, target, data):
 	if target.has_method("kicked"):
 		target.kicked()
-		_create_floating_text(target.global_position, "INTERRUPTED!", Color.ORANGE)
+		_create_floating_text(target.position, "INTERRUPTED!", Color.ORANGE)
 		_notify_success(source, "INTERRUPTED", {"target": target})
 
 # --- VISUAL HELPERS ---
@@ -177,7 +177,7 @@ func _create_floating_text(pos: Vector2, text: String, color: Color):
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.set("theme_override_colors/font_color", color)
 	label.set("theme_override_font_sizes/font_size", 24)
-	label.global_position = pos + Vector2(-50, -100) # Offset above head
+	label.position = pos + Vector2(-50, -100) # Offset above head
 	
 	# Add to main scene (current_game_node)
 	if current_game_node:
