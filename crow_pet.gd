@@ -2,7 +2,7 @@ extends BasePetEntity
 
 # --- CROW SETTINGS ---
 const ORBIT_SPEED = 2.0
-const ORBIT_RADIUS = 100.0
+const ORBIT_RADIUS = 50.0
 const ATTACK_SPEED = 800.0
 const RETURN_SPEED = 500.0
 const DAMAGE = 10.0
@@ -25,10 +25,10 @@ func _ready():
 	# Create visuals
 	body_shape = Polygon2D.new()
 	var points = PackedVector2Array([
-		Vector2(10, 0),   # Beak/Head
-		Vector2(-10, -8), # Wing Left
-		Vector2(-5, 0),   # Body Center
-		Vector2(-10, 8)   # Wing Right
+		Vector2(5, 0),   # Beak/Head
+		Vector2(-5, -4), # Wing Left
+		Vector2(-2.5, 0),   # Body Center
+		Vector2(-5, 4)   # Wing Right
 	])
 	body_shape.polygon = points
 	body_shape.color = Color(1.1, 0.1, 0.1, 1.0)
@@ -36,10 +36,10 @@ func _ready():
 	
 	# Add shadow/trail
 	trail = Line2D.new()
-	trail.width = 10.0
+	trail.width = 2.0
 	trail.default_color = Color(1.40, 1.40, 1.40, 0.5)
-	trail.points = PackedVector2Array([Vector2(-15, 0), Vector2(-40, 0), Vector2(-70, 0)])
-	add_child(body_shape)
+	trail.points = PackedVector2Array([Vector2(-2.5, 0), Vector2(-5, 0), Vector2(-10, 0)])
+	add_child(trail)
 
 	# trail.hide() 
 	

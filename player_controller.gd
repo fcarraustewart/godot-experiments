@@ -278,8 +278,8 @@ func _ready():
 
 	# --- SETUP PLAYER CAST BAR ---
 	player_cast_bar = ProgressBar.new()
-	player_cast_bar.size = Vector2(100, 1)
-	player_cast_bar.position = Vector2(-50, 80) # Centered below sprite
+	player_cast_bar.size = Vector2(50, 1)
+	player_cast_bar.position = Vector2(-25, 40) # Centered below sprite
 	player_cast_bar.show_percentage = false
 	# Style it
 	var bg_style = StyleBoxFlat.new()
@@ -296,8 +296,8 @@ func _ready():
 	# --- AIM INDICATOR ---
 	aim_indicator = Node2D.new()
 	aim_arrow_line = Line2D.new()
-	aim_arrow_line.points = PackedVector2Array([Vector2(0,0), Vector2(100,0), Vector2(85, -10), Vector2(100,0), Vector2(85, 10)])
-	aim_arrow_line.width = 4.0
+	aim_arrow_line.points = PackedVector2Array([Vector2(0,0), Vector2(50,0), Vector2(42.5, -5), Vector2(50,0), Vector2(42.5, 5)])
+	aim_arrow_line.width = 2.0
 	aim_arrow_line.default_color = Color(1.0, 1.0, 1.0, 0.6)
 	aim_indicator.add_child(aim_arrow_line)
 	aim_indicator.visible = false
@@ -590,7 +590,6 @@ func sprite_swap():
 	var active = get_active_sprite()
 	if active: 
 		active.visible = true
-		active.flip_h = not facing_right
 		active.position.y = 0
 		
 		# --- BULLETPROOF REGION-BOUNDED hframes ---
@@ -603,11 +602,9 @@ func sprite_swap():
 			
 			# Determine frame count and optional junk padding
 			var h_cnt = 1
-			var junk_x = 0
 			
 			if active == running: 
 				h_cnt = running.hframes 
-				junk_x = 0
 			if active == jumping:
 				h_cnt = jumping.hframes 
 			if active == dash:
@@ -622,10 +619,27 @@ func sprite_swap():
 				h_cnt = sprite.hframes
 			
 			# Define the playable region
-			active.region_rect = Rect2(0, 0, total_w - junk_x, total_h)
+			active.region_rect = Rect2(0, 0, total_w, total_h)
 			active.hframes = h_cnt
 			active.vframes = 1
-			# Frame index is set in update_animation()
+			
+			# --- AUTO-SCALE ---
+			var frame_w = float(total_w) / float(h_cnt)
+			var frame_h = float(total_h) / float(active.vframes)
+			
+			var target_size = 64
+			# Temporary fix: Action sheets have more padding/blank space, so we use a larger target size
+			if active != sprite:
+				target_size = 64*2.0
+				
+			var s_x = target_size / frame_w
+			var s_y = target_size / frame_h
+			
+			# Apply Scale & Facing
+			if (not facing_right):
+				active.scale = Vector2(-s_x, s_y)
+			else:
+				active.scale = Vector2(s_x, s_y)
 
 			# --- USER DEBUG PRINT ---
 			if Engine.get_process_frames() % 60 == 0:
@@ -757,8 +771,8 @@ func update_animation(_delta):
 			sprite.frame = 0
 
 # --- HITBOX HELPERS (For compatibility with Main Scene collision check) ---
-const SWORD_HITBOX_SIZE = Vector2(180, 40)
-const PLAYER_SWORD_HITBOX_OFFSET = Vector2(80, 0)
+const SWORD_HITBOX_SIZE = Vector2(60, 13.3)
+const PLAYER_SWORD_HITBOX_OFFSET = Vector2(26.7, 0)
 
 
 # --- AIM HELPER ---

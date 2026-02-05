@@ -95,12 +95,12 @@ func start_charging(target, start_pos: Vector2):
 	
 	# Spiral effect (Visual only)
 	var ring = Line2D.new()
-	ring.width = 250.0
+	ring.width = 125.0
 	ring.default_color = Color(1.6, 0.4, 0.0, 0.5)
 	var points = PackedVector2Array()
 	for i in range(4):
 		var angle = i * TAU / 32.0
-		points.append((target.position - start_pos).normalized() + Vector2(cos(angle), sin(angle)) * 50.0)
+		points.append((target.position - start_pos).normalized() + Vector2(cos(angle), sin(angle)) * 25.0)
 	ring.points = points
 	game_node.player.add_child(ring)
 	
@@ -122,7 +122,7 @@ func fire_fire_chains(from_above: bool):
 func _spawn_physics_chain(start_pos: Vector2, target: Node2D, spread: float, from_above: bool):
 	# 1. VISUAL SETUP
 	var line = Line2D.new()
-	line.width = 40.0 
+	line.width = 20.0 
 	line.texture = load("res://art/fire_chain.png")
 	line.texture_mode = Line2D.LINE_TEXTURE_STRETCH
 	line.modulate = Color(0.1, 0.01, 0.01, 1.0)
@@ -243,7 +243,7 @@ func interrupt_charging():
 
 func create_encircle_effect(target):
 	var ring = Line2D.new()
-	ring.width = 40.0
+	ring.width = 20.0
 	ring.default_color = Color(1.0, 0.4, 0.0)
 	ring.closed = true
 	var points = PackedVector2Array()

@@ -26,8 +26,8 @@ const VU_COUNT = 16
 const FREQ_MAX = 11050.0
 
 # --- DIMENSIONS ---
-const SCREEN_WIDTH = 1600
-const SCREEN_HEIGHT = 500
+const SCREEN_WIDTH = 640
+const SCREEN_HEIGHT = 360
 const SPECTRUM_BASE_WIDTH = 800.0 # Base width for spectrum math
 var center = Vector2(SCREEN_WIDTH / 2.0, SCREEN_HEIGHT / 2.0)
 
@@ -145,7 +145,7 @@ func _ready():
 	dust_packer.pack(dust_unit_node)
 	
 	dust_swarm.unit_count = 8
-	dust_swarm.spawn_radius = 20
+	dust_swarm.spawn_radius = 10
 	dust_swarm.separation_weight = 2.101   # High separation to keep them fluffy
 	dust_swarm.alignment_weight = -0.61
 	dust_swarm.cohesion_weight = -0.2    # Low cohesion so they drift a bit

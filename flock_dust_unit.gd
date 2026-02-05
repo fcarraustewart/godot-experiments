@@ -7,7 +7,7 @@ func _ready():
 	var pts = []
 	for i in range(8):
 		var ang = i * PI / 4.0
-		var r = randf_range(5, 15)
+		var r = randf_range(2.5, 3.5)
 		pts.append(Vector2(cos(ang)*r, sin(ang)*r))
 	cloud.polygon = PackedVector2Array(pts)
 	cloud.color = Color(0.8, 0.8, 0.7, 0.2) # Slightly more opaque for swarm

@@ -34,8 +34,24 @@ func _process(delta):
 				change_state(State.IDLE)
 				
 	# Animation sync (simple)
-	if sprite:
-		sprite.flip_h = !facing_right
+	# Animation sync (simple) & AUTO-SCALE
+	if sprite and sprite.texture:
+		var tex_w = sprite.texture.get_width()
+		var tex_h = sprite.texture.get_height()
+		var frame_w = tex_w / sprite.hframes
+		var frame_h = tex_h / sprite.vframes
+		
+		var h_target = 192.0 # Target height/width
+		var s_x = h_target / frame_w
+		var s_y = h_target / frame_h
+		
+		# sprite.flip_h = !facing_right # Removed, using scale instead
+		
+		if facing_right:
+			sprite.scale = Vector2(s_x, s_y)
+		else:
+			sprite.scale = Vector2(-s_x, s_y) # Flip via scale
+			
 		if velocity.x != 0:
 			sprite.frame = (int(Time.get_ticks_msec() / 200.0) % 3)
 		else:
@@ -58,8 +74,8 @@ func process_wander(delta):
 
 func get_sword_hitbox() -> Rect2:
 	# Keep the old hitbox logic if needed, but simplified
-	var size = Vector2(100, 40)
-	var offset = Vector2(60, 0)
+	var size = Vector2(33.3, 13.3)
+	var offset = Vector2(20, 0)
 	if not facing_right: offset.x = -offset.x
 	
 	var top_left = position + offset - (size / 2.0)

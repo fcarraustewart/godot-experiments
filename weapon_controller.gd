@@ -22,20 +22,20 @@ func _ready():
 func _create_axe_visuals():
 	# Handle
 	var handle = ColorRect.new()
-	handle.size = Vector2(60, 4)
+	handle.size = Vector2(30, 2)
 	handle.position = Vector2(-50, -2)
-	handle.color = Color(0.4, 0.2, 0.1) # Brown Wood
+	handle.color = Color(0.4, 0.2, 0.1, 0.5) # Brown Wood
 	add_child(handle)
 	
 	# Axe Head (Double bit)
 	var head = Polygon2D.new()
 	head.polygon = PackedVector2Array([
-		Vector2(0, -20), 
-		Vector2(15, -15), 
-		Vector2(20, 0), 
-		Vector2(15, 15), 
-		Vector2(0, 20),
-		Vector2(5, 0)
+		Vector2(0, -5), 
+		Vector2(4, -4), 
+		Vector2(5, 0), 
+		Vector2(4, 4), 
+		Vector2(0, 5),
+		Vector2(1, 0)
 	])
 	head.position = Vector2(5, 0)
 	head.color = Color(0.7, 0.7, 0.8) # Steel Blue/Grey

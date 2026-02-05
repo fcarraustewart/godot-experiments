@@ -13,7 +13,7 @@ var facing_right: bool = true
 var is_on_floor_physics: bool = false
 
 # --- CONFIG ---
-const BODY_HURTBOX_SIZE = Vector2(120, 140)
+const BODY_HURTBOX_SIZE = Vector2(64, 64)
 
 func _ready():
 	global_position = position
