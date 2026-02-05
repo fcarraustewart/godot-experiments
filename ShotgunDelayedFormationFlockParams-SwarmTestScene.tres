@@ -4,13 +4,13 @@
 
 [resource]
 script = ExtResource("1_ughqb")
-unit_count = 5
-spawn_radius = 120.0
-separation_weight = 1.5
-alignment_weight = -3.37
-cohesion_weight = 1.852
-target_attraction_weight = -0.8
+unit_count = 10
+spawn_radius = 200.0
+separation_weight = 0.025
+alignment_weight = 2.784
+cohesion_weight = 1.5
+target_attraction_weight = 0.61
 perception_radius = 150.0
-frequency = 2.0
-damping = 0.6
-response = 0.0
+frequency = 0.4
+damping = 0.5
+response = 2.08165e-12
