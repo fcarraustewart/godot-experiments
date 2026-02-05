@@ -12,8 +12,8 @@ var cooldown = 0.0
 @export var UNIT_COUNT = 12
 
 @export_group("Swarm Behavior")
-@export var separation_weight: float = 0.5/40
-@export var alignment_weight: float = -0.50/40
+@export var separation_weight: float = 0.5/20
+@export var alignment_weight: float = -1.50/20
 @export var cohesion_weight: float = 2.0/10
 @export var target_attraction_weight: float = 0.2 # Lazier tracking
 @export var freq: float = 15.8 # Slightly faster than 0.005 so they move, but still slow
