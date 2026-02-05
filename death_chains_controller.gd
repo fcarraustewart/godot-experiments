@@ -5,20 +5,23 @@ extends Node
 # Spawns a flocking swarm that tracks the target, with chains linking the boss to each swarm unit.
 
 # --- SETTINGS ---
-@export var COOLDOWN_MAX = 2.0
+@export var COOLDOWN_MAX = 4.0
 var cooldown = 0.0
 @export var RANGE = 600.0
-@export var DURATION = 3.0 # How long the swarm/chains last
-@export var UNIT_COUNT = 6
+@export var DURATION = 4.0 # How long the swarm/chains last
+@export var UNIT_COUNT = 3
 
 @export_group("Swarm Behavior")
-@export var separation_weight: float = 2.5
+@export var separation_weight: float = 0.5
 @export var alignment_weight: float = 1.0
-@export var cohesion_weight: float = 0.5
-@export var target_attraction_weight: float = 3.0
-@export var freq: float = 1.5
-@export var damp: float = 0.8
-@export var resp: float = 1.0
+@export var cohesion_weight: float = 0.8
+@export var target_attraction_weight: float = 0.2 # Lazier tracking
+@export var freq: float = 0.8 # Slightly faster than 0.005 so they move, but still slow
+@export var damp: float = 0.9
+@export var resp: float = 0.0
+
+var launch_timer: float = 0.0
+const LAUNCH_TIME = 1.5 # 1 second launch phase
 
 var game_node: Node2D
 var is_casting = false
@@ -54,62 +57,97 @@ func _process(delta):
 	if cooldown > 0:
 		cooldown -= delta
 		
-	_update_visual_representation(delta)
+	_update_visuals(delta)
 	
-	# Live Parameter Syncing
+	# Live Parameter Syncing & Launch Logic
 	if is_instance_valid(current_swarm):
+		if launch_timer > 0:
+			launch_timer -= delta
+			current_swarm.target_node = get_parent()
+			current_swarm.target_attraction_weight = -0.05 # Repel from boss
+			if Engine.get_frames_drawn() % 60 == 0:
+				print("[DeathChains] Launching... timer: ", launch_timer)
+		else:
+			if current_swarm.target_node != current_target:
+				print("[DeathChains] Launch finished. Switching to player.")
+				current_swarm.target_node = current_target
+			
+			current_swarm.target_attraction_weight = target_attraction_weight # 0.5
+		
+		# Sync other parameters
 		current_swarm.separation_weight = separation_weight
 		current_swarm.alignment_weight = alignment_weight
 		current_swarm.cohesion_weight = cohesion_weight
-		current_swarm.target_attraction_weight = target_attraction_weight
 		current_swarm.frequency = freq
 		current_swarm.damping = damp
 		current_swarm.response = resp
-	
 	# Damage logic for swarm units
 	if is_instance_valid(current_swarm) and is_instance_valid(current_target):
 		for unit in current_swarm.members:
 			if is_instance_valid(unit) and unit.global_position.distance_to(current_target.global_position) < 30.0:
 				# Deal periodic small damage
 				if CombatManager:
-					CombatManager.request_interaction(get_parent(), current_target, "damage", {"amount": 0.5})
+					CombatManager.request_interaction(get_parent(), current_target, "damage", {"amount": 0.05})
 
-func try_cast(start_pos: Vector2):
+func _physics_process(delta):
+	# CRITICAL: Anchors must be updated in physics process to sync with the solver
+	for i in range(active_visual_chains.size() - 1, -1, -1):
+		var c = active_visual_chains[i]
+		if not is_instance_valid(c.unit) or not is_instance_valid(get_parent()):
+			continue
+			
+		var body = c.physics_body
+		
+		# 1. Update Anchors
+		var boss_pos = get_parent().global_position
+		if "skull" in get_parent() and is_instance_valid(get_parent().skull):
+			boss_pos = get_parent().skull.global_position
+			
+		var unit_pos = c.unit.global_position
+		
+		body.anchors[0] = boss_pos
+		body.anchors[body.points.size() - 1] = unit_pos
+
+func try_cast(start_pos: Vector2) -> bool:
 	if cooldown <= 0 and not is_casting:
 		var target = CombatManager.get_nearest_target(start_pos, RANGE, get_parent(), CombatManager.Faction.PLAYER)
 		if target:
-			print("[DeathChains] Found target: ", target.name, " at dist: ", start_pos.distance_to(target.global_position))
+			print("[DeathChains] Initiating Cast on: ", target.name)
 			current_target = target
+			is_casting = true
 			fire_death_chains()
-			return target.position
+			return true
 		else:
 			# Only print periodically to avoid log spam
 			if Engine.get_frames_drawn() % 60 == 0:
 				print("[DeathChains] No target found in range: ", RANGE)
-	elif cooldown > 0:
-		if Engine.get_frames_drawn() % 60 == 0:
-			print("[DeathChains] On cooldown: ", cooldown)
-	return Vector2.ZERO
+	return false
 
 func fire_death_chains():
 	print("[DeathChains] FIRING! Spawning swarm with ", UNIT_COUNT, " units.")
 	if not game_node or not current_target: 
-		print("[DeathChains] ERROR: Missing game_node (", game_node != null, ") or current_target (", current_target != null, ")")
+		is_casting = false
 		return
+	is_casting = false
 	cooldown = COOLDOWN_MAX
 	
 	# 1. Create the Swarm
 	current_swarm = BaseFlockSwarm.new()
 	current_swarm.unit_count = UNIT_COUNT
-	current_swarm.spawn_radius = 50.0
+	current_swarm.spawn_radius = 2.0
 	current_swarm.separation_weight = separation_weight
 	current_swarm.alignment_weight = alignment_weight
 	current_swarm.cohesion_weight = cohesion_weight
 	current_swarm.target_attraction_weight = target_attraction_weight
-	current_swarm.frequency = freq
 	current_swarm.damping = damp
 	current_swarm.response = resp
-	current_swarm.target_node = current_target
+	current_swarm.max_speed = 80.0 # Limit speed for Death Swarm specifically
+	
+	# INITIAL LAUNCH STATE
+	launch_timer = LAUNCH_TIME
+	current_swarm.target_node = get_parent() # Start with death itself
+	current_swarm.target_attraction_weight = -0.05 # Repel
+	current_swarm.position = Vector2.ZERO # Local spawn relative to parent
 	
 	# Package a simple red visual for the units
 	var unit_packer = PackedScene.new()
@@ -134,8 +172,12 @@ func fire_death_chains():
 	if current_swarm.members.is_empty():
 		current_swarm.spawn_flock()
 		
+	var skull_pos = get_parent().global_position
+	if "skull" in get_parent() and is_instance_valid(get_parent().skull):
+		skull_pos = get_parent().skull.global_position
+		
 	for unit in current_swarm.members:
-		_spawn_physics_chain(get_parent().global_position, unit)
+		_spawn_physics_chain(skull_pos, unit)
 
 func _spawn_physics_chain(start_pos: Vector2, unit: Node2D):
 	var line = Line2D.new()
@@ -149,22 +191,19 @@ func _spawn_physics_chain(start_pos: Vector2, unit: Node2D):
 	mat.set_shader_parameter("tiling", 8.0)
 	line.material = mat
 	game_node.add_child(line)
+	line.global_position = Vector2.ZERO # Force line to world origin so point math works
 
-	var num_points = 20
+	var num_points = 12 # FEWER POINTS = Snappier tracking at slow speeds
 	var points = []
 	var start_anchor = start_pos
 	var end_target = unit.global_position
 	
-	# INITIAL SPREAD: If points are at the same spot, distance is 0 and solver may skip them.
-	# We interpolate between start and end with a little bit of noise.
 	for j in range(num_points):
 		var t = float(j) / (num_points - 1.0)
 		var p = start_anchor.lerp(end_target, t)
-		if j > 0 and j < num_points - 1:
-			p += Vector2(randf_range(-2, 2), randf_range(-2, 2))
 		points.append(p)
 
-	var body = PhysicsManager.register_soft_body("death_chain_" + str(line.get_instance_id()), points, 15.0)
+	var body = PhysicsManager.register_soft_body("death_chain_" + str(line.get_instance_id()), points, 30.0) # Higher stiffness
 	
 	active_visual_chains.append({
 		"line": line,
@@ -173,7 +212,7 @@ func _spawn_physics_chain(start_pos: Vector2, unit: Node2D):
 		"timer": DURATION
 	})
 
-func _update_visual_representation(delta):
+func _update_visuals(delta):
 	for i in range(active_visual_chains.size() - 1, -1, -1):
 		var c = active_visual_chains[i]
 		var body = c.physics_body
@@ -185,16 +224,6 @@ func _update_visual_representation(delta):
 			active_visual_chains.remove_at(i)
 			continue
 
-		# Update Anchors
-		var boss_pos = get_parent().global_position
-		if "skull" in get_parent(): # Hook to skull if it's the death boss
-			boss_pos = get_parent().skull.global_position
-			
-		var unit_pos = c.unit.global_position
-		
-		body.anchors[0] = boss_pos
-		body.anchors[body.points.size() - 1] = unit_pos
-		
 		# Map Physics to Line
 		c.line.clear_points()
 		for j in range(body.points.size()):

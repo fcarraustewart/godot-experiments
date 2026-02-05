@@ -13,6 +13,7 @@ extends Node2D
 @export_range(0, 5) var cohesion_weight: float = 1.0
 @export_range(0, 5) var target_attraction_weight: float = 2.0
 @export var perception_radius: float = 150.0
+@export var max_speed: float = 300.0
 
 @export_group("Dynamics")
 @export var frequency: float = 2.0

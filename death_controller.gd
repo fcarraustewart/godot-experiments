@@ -42,9 +42,9 @@ var lh_sim
 # --- ATTACK CONFIG ---
 @export_group("Death Chains Swarm")
 @export var swarm_unit_count: int = 2
-@export var swarm_attraction: float = 3.5
+@export var swarm_attraction: float = 0.2
 @export var swarm_separation: float = 2.0
-@export var swarm_frequency: float = 2.0
+@export var swarm_frequency: float = 0.8
 
 var death_chains_ctrl
 var target_player: Node2D
@@ -111,6 +111,12 @@ func _process(delta):
 			print("[DeathController] WARNING: No player found in 'Player' group.")
 			
 	_process_ai(delta)
+	
+	if current_state == State.CASTING:
+		velocity = Vector2.ZERO
+		if state_timer <= 0:
+			change_state(State.RUNNING)
+			
 	_update_joint_dynamics(delta)
 	_update_visuals(delta)
 
@@ -131,7 +137,9 @@ func _process_ai(delta):
 				
 			# Attempt to cast Death Chains while chasing
 			if death_chains_ctrl:
-				death_chains_ctrl.try_cast(global_position)
+				if death_chains_ctrl.try_cast(global_position):
+					change_state(State.CASTING)
+					state_timer = 0.8 # Cast wind-up time
 			else:
 				print("[DeathAI] ERROR: death_chains_ctrl is NULL")
 			return

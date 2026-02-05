@@ -42,7 +42,7 @@ func _physics_process(delta):
 	var target_force = _calculate_target_attraction()
 	
 	# The flocking algorithm desires a VELOCITY/DIRECTION
-	var desired_velocity = (swarm_force + target_force).limit_length(300.0) # Max Speed
+	var desired_velocity = (swarm_force + target_force).limit_length(flock_manager.max_speed)
 	
 	if desired_velocity == Vector2.ZERO:
 		desired_velocity = Vector2(randf_range(-1, 1), randf_range(-1, 1)) * 10.0
