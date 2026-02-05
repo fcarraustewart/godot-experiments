@@ -227,6 +227,12 @@ func _ready():
 		if floor_node:
 			PhysicsManager.floor_y = floor_node.position.y
 			
+	# --- SETUP BOSS ---
+	var boss = load("res://death_controller.gd").new()
+	boss.position = center + Vector2(200, -100)
+	enemies.append(boss)
+	add_child(boss)
+	
 	print("[ShowSpectrum] _ready complete.")
 
 

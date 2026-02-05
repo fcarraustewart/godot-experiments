@@ -96,15 +96,22 @@ func _process_combat_collisions():
 						source.add_charge(spell_data.charge_gen)
 		
 		# ENEMY ATTACKING
-		elif source.has_method("is_enemy") and source.is_enemy() and source.sprite.frame == 1:
-			var enemy_hitbox = source.get_sword_hitbox()
-			var targets = find_targets_in_hitbox(enemy_hitbox, source)
-			for target in targets:
-				if target is PlayerController:
-					print("Enemy hit player: ", target.name)
-					target.hit()
-					request_interaction(source, target, "cc", {"cc_type": "slow", "duration": 1.0, "amount": 0.5})
-					request_interaction(source, target, "damage", {"amount": 5.0})
+		elif source.has_method("is_enemy") and source.is_enemy():
+			# Check for standard sprite-based attack frame logic
+			var is_attacking = false
+			if "sprite" in source and is_instance_valid(source.sprite):
+				if source.sprite.frame == 1:
+					is_attacking = true
+					
+			if is_attacking:
+				var enemy_hitbox = source.get_sword_hitbox()
+				var targets = find_targets_in_hitbox(enemy_hitbox, source)
+				for target in targets:
+					if target is PlayerController:
+						print("Enemy hit player: ", target.name)
+						target.apply_hit(5.0, source)
+						request_interaction(source, target, "cc", {"cc_type": "slow", "duration": 1.0, "amount": 0.5})
+						request_interaction(source, target, "damage", {"amount": 5.0})
 
 # Called by Source (e.g., Player) when they want to interact with a Target
 func request_interaction(source: Node2D, target: Node2D, type: String, data: Dictionary) -> bool:
