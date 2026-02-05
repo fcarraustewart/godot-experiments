@@ -39,11 +39,22 @@ var body_sim
 var rh_sim
 var lh_sim
 
+# --- ATTACK CONFIG ---
+@export_group("Death Chains Swarm")
+@export var swarm_unit_count: int = 2
+@export var swarm_attraction: float = 3.5
+@export var swarm_separation: float = 2.0
+@export var swarm_frequency: float = 2.0
+
+var death_chains_ctrl
 var target_player: Node2D
 var wander_timer: float = 0.0
 var wander_dir: Vector2 = Vector2.ZERO
 
 func _ready():
+	print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+	print("!!! DEATH BOSS BOOTING UP !!!")
+	print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
 	super._ready() # Registers with managers
 	add_to_group("Enemy")
 	
@@ -54,13 +65,26 @@ func _ready():
 	rh = _setup_part("res://art/death_RH.png")
 	lh = _setup_part("res://art/death_LH.png")
 	
-	# 2. Register with PhysicsManager (SOD)
+	# 2. Setup Death Chains Spell
+	death_chains_ctrl = load("res://death_chains_controller.gd").new()
+	death_chains_ctrl.UNIT_COUNT = swarm_unit_count
+	death_chains_ctrl.target_attraction_weight = swarm_attraction
+	death_chains_ctrl.separation_weight = swarm_separation
+	death_chains_ctrl.freq = swarm_frequency
+	
+	# Important: Find the root game node or pass a reference
+	# For simplicity, we assume the parent or a global is the game node
+	death_chains_ctrl.game_node = get_parent()
+	add_child(death_chains_ctrl)
+	
+	# 3. Register with PhysicsManager (SOD)
 	if PhysicsManager:
 		var start_pos = global_position
 		skull_sim = PhysicsManager.register_second_order("Death_Skull_" + str(get_instance_id()), start_pos, skull_f, skull_z, skull_r)
 		body_sim  = PhysicsManager.register_second_order("Death_Body_" + str(get_instance_id()), start_pos + body_target_offset, joint_f, joint_z, joint_r)
 		rh_sim    = PhysicsManager.register_second_order("Death_RH_" + str(get_instance_id()), start_pos + rh_target_offset, joint_f, joint_z, joint_r)
 		lh_sim    = PhysicsManager.register_second_order("Death_LH_" + str(get_instance_id()), start_pos + lh_target_offset, joint_f, joint_z, joint_r)
+	print("[DeathController] _ready finished. Parts and Sim IDs created.")
 
 func _setup_part(path: String) -> Sprite2D:
 	var s = Sprite2D.new()
@@ -72,6 +96,9 @@ func _setup_part(path: String) -> Sprite2D:
 func is_enemy(): return true
 
 func _process(delta):
+	if Engine.get_frames_drawn() % 30 == 0:
+		print("[DeathController] PROCESS_CHECK - Frame: ", Engine.get_frames_drawn())
+
 	state_timer -= delta
 	
 	# Find target player if needed
@@ -79,21 +106,34 @@ func _process(delta):
 		var players = get_tree().get_nodes_in_group("Player")
 		if players.size() > 0:
 			target_player = players[0]
+			print("[DeathController] Found player in group: ", target_player.name)
+		elif Engine.get_frames_drawn() % 60 == 0:
+			print("[DeathController] WARNING: No player found in 'Player' group.")
 			
 	_process_ai(delta)
 	_update_joint_dynamics(delta)
 	_update_visuals(delta)
 
 func _process_ai(delta):
+	if Engine.get_frames_drawn() % 10 == 0:
+		print("--- DEATH AI TICK --- Target: ", is_instance_valid(target_player))
 	# Simple Aggro/Chase
 	if is_instance_valid(target_player):
 		var dist = global_position.distance_to(target_player.global_position)
 		if dist < AGGRO_RANGE:
+			if current_state != State.RUNNING:
+				print("[DeathAI] Aggro! Chasing player.")
+				change_state(State.RUNNING)
+				
 			var dir = (target_player.global_position - global_position).normalized()
 			velocity = dir * CHASE_SPEED
 			facing_right = dir.x > 0
-			if current_state != State.RUNNING:
-				change_state(State.RUNNING)
+				
+			# Attempt to cast Death Chains while chasing
+			if death_chains_ctrl:
+				death_chains_ctrl.try_cast(global_position)
+			else:
+				print("[DeathAI] ERROR: death_chains_ctrl is NULL")
 			return
 
 	# Wander if no player or out of range
@@ -120,6 +160,12 @@ func _update_joint_dynamics(delta):
 	PhysicsManager.update_dynamics_for_sim(rh_sim, joint_f, joint_z, joint_r)
 	PhysicsManager.update_dynamics_for_sim(lh_sim, joint_f, joint_z, joint_r)
 	
+	if death_chains_ctrl:
+		death_chains_ctrl.UNIT_COUNT = swarm_unit_count
+		death_chains_ctrl.target_attraction_weight = swarm_attraction
+		death_chains_ctrl.separation_weight = swarm_separation
+		death_chains_ctrl.freq = swarm_frequency
+
 	# Calculate flipped offsets
 	var flipped_skull_off = skull_center_offset
 	var flipped_body_off = body_target_offset

@@ -103,6 +103,7 @@ func _ready():
 	
 	# --- SETUP PLAYER CONTROLLER ---
 	player = load("res://player_controller.gd").new()
+	player.name = "ThePlayer"
 	player.game_node = self
 	player.position = center
 	player.global_position = player.position
@@ -230,8 +231,10 @@ func _ready():
 	# --- SETUP BOSS ---
 	var boss = load("res://death_controller.gd").new()
 	boss.position = center + Vector2(200, -100)
+	boss.name = "DeathBoss"
 	enemies.append(boss)
 	add_child(boss)
+	print("[ShowSpectrum] BOSS ADDED: ", boss.name)
 	
 	print("[ShowSpectrum] _ready complete.")
 
