@@ -5,20 +5,20 @@ extends Node
 # Spawns a flocking swarm that tracks the target, with chains linking the boss to each swarm unit.
 
 # --- SETTINGS ---
-@export var COOLDOWN_MAX = 4.0
+@export var COOLDOWN_MAX = 8.0
 var cooldown = 0.0
 @export var RANGE = 600.0
-@export var DURATION = 4.0 # How long the swarm/chains last
-@export var UNIT_COUNT = 3
+@export var DURATION = 8.0 # How long the swarm/chains last
+@export var UNIT_COUNT = 12
 
 @export_group("Swarm Behavior")
-@export var separation_weight: float = 0.5
-@export var alignment_weight: float = 1.0
-@export var cohesion_weight: float = 0.8
+@export var separation_weight: float = 0.5/40
+@export var alignment_weight: float = -0.50/40
+@export var cohesion_weight: float = 2.0/10
 @export var target_attraction_weight: float = 0.2 # Lazier tracking
-@export var freq: float = 0.8 # Slightly faster than 0.005 so they move, but still slow
-@export var damp: float = 0.9
-@export var resp: float = 0.0
+@export var freq: float = 15.8 # Slightly faster than 0.005 so they move, but still slow
+@export var damp: float = 0.009
+@export var resp: float = 0.4
 
 var launch_timer: float = 0.0
 const LAUNCH_TIME = 1.5 # 1 second launch phase
@@ -134,20 +134,24 @@ func fire_death_chains():
 	# 1. Create the Swarm
 	current_swarm = BaseFlockSwarm.new()
 	current_swarm.unit_count = UNIT_COUNT
-	current_swarm.spawn_radius = 2.0
+	current_swarm.spawn_radius = 40.0 # Spread units around the boss
 	current_swarm.separation_weight = separation_weight
 	current_swarm.alignment_weight = alignment_weight
 	current_swarm.cohesion_weight = cohesion_weight
 	current_swarm.target_attraction_weight = target_attraction_weight
 	current_swarm.damping = damp
 	current_swarm.response = resp
-	current_swarm.max_speed = 80.0 # Limit speed for Death Swarm specifically
+	current_swarm.max_speed = 150.0 # Limit speed for Death Swarm specifically
 	
 	# INITIAL LAUNCH STATE
 	launch_timer = LAUNCH_TIME
 	current_swarm.target_node = get_parent() # Start with death itself
-	current_swarm.target_attraction_weight = -0.05 # Repel
-	current_swarm.position = Vector2.ZERO # Local spawn relative to parent
+	current_swarm.target_attraction_weight = -5.5 # Repel
+	
+	# Determine spawn center (Skull)
+	var boss_pos = get_parent().global_position
+	if "skull" in get_parent() and is_instance_valid(get_parent().skull):
+		boss_pos = get_parent().skull.global_position
 	
 	# Package a simple red visual for the units
 	var unit_packer = PackedScene.new()
@@ -163,8 +167,8 @@ func fire_death_chains():
 	unit_packer.pack(unit_node)
 	current_swarm.unit_scene = unit_packer
 	
+	current_swarm.global_position = boss_pos
 	game_node.add_child(current_swarm)
-	current_swarm.global_position = get_parent().global_position
 	
 	# 2. Spawn one chain per unit
 	# Swarm spawn happens in _ready of swarm, but we need the units now.
@@ -181,10 +185,10 @@ func fire_death_chains():
 
 func _spawn_physics_chain(start_pos: Vector2, unit: Node2D):
 	var line = Line2D.new()
-	line.width = 15.0 
+	line.width = 30.0 
 	line.texture = load("res://art/fire_chain.png")
 	line.texture_mode = Line2D.LINE_TEXTURE_STRETCH
-	line.modulate = Color(0.05, 0.8, 0.05, 1.0) # Blood Red tint
+	line.modulate = Color(1.05, 1.8, 1.05, 1.0) # Blood Red tint
 	
 	var mat = ShaderMaterial.new()
 	mat.shader = load("res://fire_chain.gdshader")
@@ -193,7 +197,7 @@ func _spawn_physics_chain(start_pos: Vector2, unit: Node2D):
 	game_node.add_child(line)
 	line.global_position = Vector2.ZERO # Force line to world origin so point math works
 
-	var num_points = 12 # FEWER POINTS = Snappier tracking at slow speeds
+	var num_points = 4 # FEWER POINTS = Snappier tracking at slow speeds
 	var points = []
 	var start_anchor = start_pos
 	var end_target = unit.global_position
