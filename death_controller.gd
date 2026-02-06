@@ -10,21 +10,21 @@ class_name DeathController
 # --- DYNAMICS PARAMETERS (Live Editing) ---
 # Separate settings for Skull vs Body for different "weight" feel
 @export_group("Skull Dynamics")
-@export var skull_f: float = 2.5
-@export var skull_z: float = 0.6
-@export var skull_r: float = 2.0
+@export var skull_f: float = 0.5
+@export var skull_z: float = 8.6
+@export var skull_r: float = 0.1
 
 @export_group("Joint Dynamics")
-@export var joint_f: float = 1.5
-@export var joint_z: float = 0.4
-@export var joint_r: float = 1.5
+@export var joint_f: float = 0.9
+@export var joint_z: float = 0.8
+@export var joint_r: float = 0.0
 
 # --- OFFSETS (Target relative to Skull) ---
 @export_group("Offsets")
 @export var skull_center_offset: Vector2 = Vector2(0, -20)
 @export var body_target_offset: Vector2 = Vector2(0, 10)
-@export var rh_target_offset: Vector2 = Vector2(25, 5)
-@export var lh_target_offset: Vector2 = Vector2(-25, 5)
+@export var rh_target_offset: Vector2 = Vector2(-40, 5)
+@export var lh_target_offset: Vector2 = Vector2(40, 5)
 
 # Visual Nodes
 var skull: Sprite2D

@@ -9,7 +9,7 @@ extends Node
 var cooldown = 0.0
 @export var RANGE = 600.0
 @export var DURATION = 8.0 # How long the swarm/chains last
-@export var UNIT_COUNT = 12
+@export var UNIT_COUNT = 20
 
 @export_group("Swarm Behavior")
 @export var separation_weight: float = 0.5/20
@@ -134,14 +134,14 @@ func fire_death_chains():
 	# 1. Create the Swarm
 	current_swarm = BaseFlockSwarm.new()
 	current_swarm.unit_count = UNIT_COUNT
-	current_swarm.spawn_radius = 40.0 # Spread units around the boss
+	current_swarm.spawn_radius = 60.0 # Spread units around the boss
 	current_swarm.separation_weight = separation_weight
 	current_swarm.alignment_weight = alignment_weight
 	current_swarm.cohesion_weight = cohesion_weight
 	current_swarm.target_attraction_weight = target_attraction_weight
 	current_swarm.damping = damp
 	current_swarm.response = resp
-	current_swarm.max_speed = 150.0 # Limit speed for Death Swarm specifically
+	current_swarm.max_speed = 600.0 # Limit speed for Death Swarm specifically
 	
 	# INITIAL LAUNCH STATE
 	launch_timer = LAUNCH_TIME
@@ -161,7 +161,7 @@ func fire_death_chains():
 	# Add red visual to unit
 	var visual = Polygon2D.new()
 	visual.polygon = PackedVector2Array([Vector2(0,-4), Vector2(4,0), Vector2(0,4), Vector2(-4,0)])
-	visual.color = Color(1.5, 1.1, 1.1, 1.08) # Glowing red
+	visual.color = Color(1, 1, 1, 26.08) # Glowing red
 	unit_node.add_child(visual)
 	
 	unit_packer.pack(unit_node)
@@ -178,7 +178,7 @@ func fire_death_chains():
 		
 	var skull_pos = get_parent().global_position
 	if "skull" in get_parent() and is_instance_valid(get_parent().skull):
-		skull_pos = get_parent().skull.global_position
+		skull_pos = get_parent().rh.global_position
 		
 	for unit in current_swarm.members:
 		_spawn_physics_chain(skull_pos, unit)
@@ -188,7 +188,7 @@ func _spawn_physics_chain(start_pos: Vector2, unit: Node2D):
 	line.width = 30.0 
 	line.texture = load("res://art/fire_chain.png")
 	line.texture_mode = Line2D.LINE_TEXTURE_STRETCH
-	line.modulate = Color(1.05, 1.8, 1.05, 1.0) # Blood Red tint
+	line.modulate = Color(1, 1, 1, 20.7) # Blood Red tint
 	
 	var mat = ShaderMaterial.new()
 	mat.shader = load("res://fire_chain.gdshader")
