@@ -4,7 +4,7 @@ class_name DeathController
 
 # --- BOSS CONFIG ---
 @export var WANDER_SPEED = 80.0
-@export var CHASE_SPEED = 160.0
+@export var CHASE_SPEED = 100.0
 @export var AGGRO_RANGE = 500.0
 
 # --- DYNAMICS PARAMETERS (Live Editing) ---
@@ -22,9 +22,9 @@ class_name DeathController
 # --- OFFSETS (Target relative to Skull) ---
 @export_group("Offsets")
 @export var skull_center_offset: Vector2 = Vector2(0, -20)
-@export var body_target_offset: Vector2 = Vector2(0, 10)
-@export var rh_target_offset: Vector2 = Vector2(-40, 5)
-@export var lh_target_offset: Vector2 = Vector2(40, 5)
+@export var body_target_offset: Vector2 = Vector2(0, 5)
+@export var rh_target_offset: Vector2 = Vector2(-30, 5)
+@export var lh_target_offset: Vector2 = Vector2(30, 5)
 
 # Visual Nodes
 var skull: Sprite2D
