@@ -28,6 +28,9 @@ var casting_time = 10.0
 var hit_count: int = 0
 # --- COMPONENTS ---
 var sprite: Sprite2D
+var idle: Sprite2D
+var idle_timer: float = 0.0
+var stationary: Sprite2D
 var casting: Sprite2D
 var casting_success: Sprite2D
 var running: Sprite2D
@@ -199,6 +202,23 @@ func _ready():
 	sprite.vframes = 1
 	sprite.visible = true
 	add_child(sprite)
+	# 1.1 Idle moving Sprite
+	idle = Sprite2D.new()
+	idle.texture = load("res://art/inanimate-anims-idle.png")
+	idle.region_enabled = false
+	idle.hframes = 8
+	idle.vframes = 1
+	idle.visible = false
+	add_child(idle)
+	idle_timer = 0.0
+	# 1.2 Stationary moving Sprite
+	stationary = Sprite2D.new()
+	stationary.texture = load("res://art/inanimate-anims-stationary.png")
+	stationary.region_enabled = false
+	stationary.hframes = 7
+	stationary.vframes = 1
+	stationary.visible = false
+	add_child(stationary)
 
 	# 2. Casting Sprite
 	casting = Sprite2D.new()
@@ -343,6 +363,8 @@ func _process(delta):
 			process_interrupted(delta)
 		State.HURT:
 			process_hurt(delta) # Stays here but is avoided in change_state
+		State.STATIONARY:
+			process_idle(delta)
 		State.CASTING_COMPLETE:
 			# Temporary state to handle post-cast logic if needed
 			process_casting_complete(delta)
@@ -357,7 +379,16 @@ func _process(delta):
 
 # --- STATE HANDLERS ---
 
-func process_idle(_delta):
+func process_idle(delta):
+	idle_timer += delta
+	if current_state == State.IDLE:
+		if idle_timer > 5.0:
+			idle_timer = 0.0
+			change_state(State.STATIONARY)
+	elif current_state == State.STATIONARY:
+		if idle_timer > 2.0:
+			idle_timer = 0.0
+			change_state(State.IDLE)
 	check_movement_input()
 	check_action_input()
 	update_aim_indicator()
@@ -603,14 +634,19 @@ func sprite_swap():
 			
 			# Determine frame count and optional junk padding
 			var h_cnt = 1
+			active.region_enabled = true
 			
 			if active == running: 
 				h_cnt = running.hframes 
-			if active == jumping:
+			elif active == jumping:
 				h_cnt = jumping.hframes 
-			if active == dash:
+			elif active == dash:
 				h_cnt = dash.hframes 
-			if active == attack1:
+			elif active == idle:
+				h_cnt = idle.hframes 
+			elif active == stationary:
+				h_cnt = stationary.hframes 
+			elif active == attack1:
 				h_cnt = attack1.hframes 
 			elif active == casting: 
 				h_cnt = casting.hframes
@@ -629,8 +665,9 @@ func sprite_swap():
 			var frame_h = float(total_h) / float(active.vframes)
 			
 			var target_size = 64
+
 			# Temporary fix: Action sheets have more padding/blank space, so we use a larger target size
-			if active != sprite:
+			if ((active != sprite) and (active != idle) and (active != stationary)):
 				target_size = 64*2.0
 				
 			var s_x = target_size / frame_w
@@ -644,8 +681,7 @@ func sprite_swap():
 
 			# --- USER DEBUG PRINT ---
 			if Engine.get_process_frames() % 60 == 0:
-				print("[PlayerPhysics] OnFloor: %s | VelY: %.1f | State: %s" % [
-					is_on_floor_physics,
+				print("[PlayerPhysics] VelY: %.1f | State: %s" % [
 					velocity.y,
 					State.keys()[current_state]
 				])
@@ -660,7 +696,7 @@ func sprite_swap():
 
 func reset_animations():
 	sprite_swap()
-	for sprite in [sprite, casting, casting_success, running, jumping, dash, attack1]:
+	for sprite in [sprite, casting, casting_success, running, jumping, dash, attack1, idle, stationary]:
 		sprite.frame = 0
 
 func change_state(new_state):
@@ -670,7 +706,6 @@ func change_state(new_state):
 	if new_state == State.HURT:
 		emit_signal("struck")
 		return
-
 	reset_animations() # Stop all animations until we set the correct one for the new state
 
 	if current_state == State.CASTING or current_state == State.CASTING_COMPLETE:
@@ -694,6 +729,9 @@ func change_state(new_state):
 	if current_state == State.STUNNED:
 		if state_timer > 0:
 			return # Can't exit stunned until timer done
+	
+	if new_state == State.IDLE:
+		idle_timer = 0.0 # Reset idle timer when we enter idle
 
 	current_state = new_state
 	# Visibility handled in _process nuclear loop now
@@ -715,6 +753,8 @@ func _hide_all_sprites():
 	jumping.visible = false
 	dash.visible = false
 	attack1.visible = false
+	idle.visible = false
+	stationary.visible = false
 	# Ensure they are opaque when they DO appear
 	sprite.modulate.a = 1.0
 	casting.modulate.a = 1.0
@@ -723,6 +763,8 @@ func _hide_all_sprites():
 	jumping.modulate.a = 1.0
 	dash.modulate.a = 1.0
 	attack1.modulate.a = 1.0
+	idle.modulate.a = 1.0
+	stationary.modulate.a = 1.0
 
 func get_active_sprite() -> Sprite2D:
 	match current_state:
@@ -732,6 +774,8 @@ func get_active_sprite() -> Sprite2D:
 		State.DASHING: return dash
 		State.CASTING: return casting
 		State.CASTING_COMPLETE: return casting_success
+		State.IDLE: return idle
+		State.STATIONARY: return stationary
 		_: return sprite
 
 func update_animation(_delta):
@@ -742,7 +786,6 @@ func update_animation(_delta):
 		State.ATTACKING:
 			var t = Time.get_ticks_msec() / 100.0 
 			attack1.frame = (int(t)) % attack1.hframes
-
 		State.CASTING_COMPLETE:
 			var h_cnt : int = 0
 			if active_skill_ctrl:
@@ -769,7 +812,12 @@ func update_animation(_delta):
 			var t = Time.get_ticks_msec() / 50.0 
 			dash.frame = (int(t)) % dash.hframes
 		State.IDLE:
-			sprite.frame = 0
+			var t = Time.get_ticks_msec() / 150.0 
+			idle.frame = (int(t)) % idle.hframes
+		State.STATIONARY:
+			if stationary.frame < stationary.hframes-1:
+				var t = Time.get_ticks_msec() / 400.0 
+				stationary.frame = (int(t)) % stationary.hframes
 
 # --- HITBOX HELPERS (For compatibility with Main Scene collision check) ---
 const SWORD_HITBOX_SIZE = Vector2(60, 13.3)
