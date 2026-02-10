@@ -599,8 +599,8 @@ func _on_input_action(action_name: String, data: Dictionary):
 		"cleave_swarm":
 			if current_state != State.ATTACKING and current_state != State.ATTACKING_2 and current_state != State.ATTACKING_3:
 				# Sync facing with aim direction before attack
-				if input_throttle != Vector2.ZERO:
-					facing_right = input_throttle.x > 0
+				if input_throttle != 0:
+					facing_right = input_throttle > 0
 				
 				cleave_count += 1
 				var type = 1 if cleave_count % 2 == 1 else 2
