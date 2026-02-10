@@ -37,9 +37,13 @@ var running: Sprite2D
 var jumping: Sprite2D
 var dash: Sprite2D
 var attack1: Sprite2D
+var attack2: Sprite2D
+var attack3: Sprite2D
+var cleave_count = 0
 var chain_lightning_ctrl
 var fire_chains_ctrl
 var meteor_strike_ctrl
+var cleave_swarm_ctrl
 var from_above = false
 
 var axe_ctrl # Procedural axe controller
@@ -208,6 +212,7 @@ func _ready():
 	idle.region_enabled = false
 	idle.hframes = 8
 	idle.vframes = 1
+	idle.flip_h = true
 	idle.visible = false
 	add_child(idle)
 	idle_timer = 0.0
@@ -217,6 +222,7 @@ func _ready():
 	stationary.region_enabled = false
 	stationary.hframes = 7
 	stationary.vframes = 1
+	stationary.flip_h = true
 	stationary.visible = false
 	add_child(stationary)
 
@@ -273,8 +279,29 @@ func _ready():
 	attack1.vframes = 1
 	attack1.visible = false
 	add_child(attack1)
+
+	# 7. Cleave Attack 1 (Front to Back)
+	attack2 = Sprite2D.new()
+	attack2.texture = load("res://art/inanimate-anims-cast1-instant.png")
+	attack2.region_enabled = false
+	attack2.hframes = 4
+	attack2.vframes = 1
+	attack2.visible = false
+	add_child(attack2)
+
+	# 8. Cleave Attack 2 (Back to Front)
+	attack3 = Sprite2D.new()
+	attack3.texture = load("res://art/inanimate-anims-cast2-instant.png")
+	attack3.region_enabled = false
+	attack3.hframes = 4
+	attack3.vframes = 1
+	attack3.visible = false
+	add_child(attack3)
 	
 	# Instantiate Skills
+	cleave_swarm_ctrl = load("res://cleave_swarm_controller.gd").new()
+	cleave_swarm_ctrl.game_node = game_node
+	add_child(cleave_swarm_ctrl)
 	chain_lightning_ctrl = load("res://with_physics_manager_chain_lightning_controller.gd").new()
 	chain_lightning_ctrl.game_node = game_node # Pass main node for enemy access
 	add_child(chain_lightning_ctrl)
@@ -350,6 +377,10 @@ func _process(delta):
 		State.RUNNING:
 			process_running(delta)
 		State.ATTACKING:
+			process_attacking(delta)
+		State.ATTACKING_2:
+			process_attacking(delta)
+		State.ATTACKING_3:
 			process_attacking(delta)
 		State.CASTING:
 			process_casting(delta)
@@ -563,6 +594,16 @@ func _on_input_action(action_name: String, data: Dictionary):
 				if is_instance_valid(axe_ctrl):
 					axe_ctrl.start_attack()
 
+		"cleave_swarm":
+			if current_state != State.ATTACKING and current_state != State.ATTACKING_2 and current_state != State.ATTACKING_3:
+				cleave_count += 1
+				var type = 1 if cleave_count % 2 == 1 else 2
+				change_state(State.ATTACKING_2 if type == 1 else State.ATTACKING_3)
+				state_timer = ATTACK_DURATION
+				emit_signal("cast_start", ATTACK_DURATION)
+				if is_instance_valid(cleave_swarm_ctrl):
+					cleave_swarm_ctrl.cast_cleave(type)
+	
 		"fire_chains":
 			_try_start_cast(fire_chains_ctrl, "fire_chains")
 		
@@ -626,7 +667,7 @@ func sprite_swap():
 		
 		# --- BULLETPROOF REGION-BOUNDED hframes ---
 		# We define the 'Real Area' and let Godot's hframes divide only THAT.
-		active.region_enabled = true
+		# active.region_enabled = true
 		var tex = active.texture
 		if tex:
 			var total_w = tex.get_width()
@@ -648,6 +689,10 @@ func sprite_swap():
 				h_cnt = stationary.hframes 
 			elif active == attack1:
 				h_cnt = attack1.hframes 
+			elif active == attack2:
+				h_cnt = attack2.hframes 
+			elif active == attack3:
+				h_cnt = attack3.hframes 
 			elif active == casting: 
 				h_cnt = casting.hframes
 			elif active == casting_success: 
@@ -667,7 +712,7 @@ func sprite_swap():
 			var target_size = 64
 
 			# Temporary fix: Action sheets have more padding/blank space, so we use a larger target size
-			if ((active != sprite) and (active != idle) and (active != stationary)):
+			if ((active != sprite) and (active != stationary)):
 				target_size = 64*2.0
 				
 			var s_x = target_size / frame_w
@@ -696,7 +741,7 @@ func sprite_swap():
 
 func reset_animations():
 	sprite_swap()
-	for sprite in [sprite, casting, casting_success, running, jumping, dash, attack1, idle, stationary]:
+	for sprite in [sprite, casting, casting_success, running, jumping, dash, attack1, attack2, attack3, idle, stationary]:
 		sprite.frame = 0
 
 func change_state(new_state):
@@ -753,6 +798,8 @@ func _hide_all_sprites():
 	jumping.visible = false
 	dash.visible = false
 	attack1.visible = false
+	attack2.visible = false
+	attack3.visible = false
 	idle.visible = false
 	stationary.visible = false
 	# Ensure they are opaque when they DO appear
@@ -763,12 +810,16 @@ func _hide_all_sprites():
 	jumping.modulate.a = 1.0
 	dash.modulate.a = 1.0
 	attack1.modulate.a = 1.0
+	attack2.modulate.a = 1.0
+	attack3.modulate.a = 1.0
 	idle.modulate.a = 1.0
 	stationary.modulate.a = 1.0
 
 func get_active_sprite() -> Sprite2D:
 	match current_state:
 		State.ATTACKING: return attack1
+		State.ATTACKING_2: return attack2
+		State.ATTACKING_3: return attack3
 		State.RUNNING: return running
 		State.JUMPING: return jumping
 		State.DASHING: return dash
@@ -783,9 +834,10 @@ func update_animation(_delta):
 	# Frame Logic only. 
 	# We set .frame here, and _process uses it to calculate region_rect.
 	match current_state:
-		State.ATTACKING:
+		State.ATTACKING, State.ATTACKING_2, State.ATTACKING_3:
+			var active = get_active_sprite()
 			var t = Time.get_ticks_msec() / 100.0 
-			attack1.frame = (int(t)) % attack1.hframes
+			active.frame = (int(t)) % active.hframes
 		State.CASTING_COMPLETE:
 			var h_cnt : int = 0
 			if active_skill_ctrl:
@@ -815,7 +867,7 @@ func update_animation(_delta):
 			var t = Time.get_ticks_msec() / 150.0 
 			idle.frame = (int(t)) % idle.hframes
 		State.STATIONARY:
-			if stationary.frame < stationary.hframes-1:
+			if stationary.frame < stationary.hframes-2:
 				var t = Time.get_ticks_msec() / 400.0 
 				stationary.frame = (int(t)) % stationary.hframes
 

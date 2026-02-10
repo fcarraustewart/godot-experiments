@@ -16,6 +16,7 @@ const ACTION_ATTACK = "attack"
 const ACTION_SKILL_1 = "chain_lightning"
 const ACTION_SKILL_2 = "fire_chains"
 const ACTION_ULTIMATE = "meteor_strike"
+const ACTION_CLEAVE_SWARM = "cleave_swarm"
 
 # Internal Input Map (Configurable via external DB later)
 var key_map = {
@@ -24,7 +25,8 @@ var key_map = {
 	KEY_4: ACTION_ATTACK,
 	KEY_3: ACTION_SKILL_1,
 	KEY_F: ACTION_SKILL_2,
-	KEY_R: ACTION_ULTIMATE
+	KEY_R: ACTION_ULTIMATE,
+	KEY_1: ACTION_CLEAVE_SWARM
 }
 
 func _unhandled_input(event: InputEvent):
