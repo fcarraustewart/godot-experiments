@@ -287,6 +287,7 @@ func _ready():
 	attack2.hframes = 4
 	attack2.vframes = 1
 	attack2.visible = false
+	attack2.flip_h = true # Assets face left by default
 	add_child(attack2)
 
 	# 8. Cleave Attack 2 (Back to Front)
@@ -296,6 +297,7 @@ func _ready():
 	attack3.hframes = 4
 	attack3.vframes = 1
 	attack3.visible = false
+	attack3.flip_h = true # Assets face left by default
 	add_child(attack3)
 	
 	# Instantiate Skills
@@ -596,9 +598,14 @@ func _on_input_action(action_name: String, data: Dictionary):
 
 		"cleave_swarm":
 			if current_state != State.ATTACKING and current_state != State.ATTACKING_2 and current_state != State.ATTACKING_3:
+				# Sync facing with aim direction before attack
+				if input_throttle != Vector2.ZERO:
+					facing_right = input_throttle.x > 0
+				
 				cleave_count += 1
 				var type = 1 if cleave_count % 2 == 1 else 2
 				change_state(State.ATTACKING_2 if type == 1 else State.ATTACKING_3)
+				print("cast", type)
 				state_timer = ATTACK_DURATION
 				emit_signal("cast_start", ATTACK_DURATION)
 				if is_instance_valid(cleave_swarm_ctrl):
@@ -712,7 +719,10 @@ func sprite_swap():
 			var target_size = 64
 
 			# Temporary fix: Action sheets have more padding/blank space, so we use a larger target size
-			if ((active != sprite) and (active != stationary)):
+			var inanimate_sheets = [stationary, idle, attack2, attack3]
+			if active in inanimate_sheets:
+				target_size = 64*2.0
+			elif active != sprite:
 				target_size = 64*2.0
 				
 			var s_x = target_size / frame_w
@@ -836,8 +846,10 @@ func update_animation(_delta):
 	match current_state:
 		State.ATTACKING, State.ATTACKING_2, State.ATTACKING_3:
 			var active = get_active_sprite()
-			var t = Time.get_ticks_msec() / 100.0 
+			var t = Time.get_ticks_msec() / 50.0 
 			active.frame = (int(t)) % active.hframes
+			print("active.frame", active.frame)
+			print("active.hframe", active.hframes)
 		State.CASTING_COMPLETE:
 			var h_cnt : int = 0
 			if active_skill_ctrl:

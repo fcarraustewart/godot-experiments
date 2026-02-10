@@ -74,10 +74,12 @@ func cast_cleave(type: int):
 			# Cast 1: Front to Back (Shrinks)
 			unit.scale = Vector2(1.5, 1.5)
 			tween.tween_property(unit, "scale", Vector2(0.3, 0.3), LIFETIME)
+			print("[CleaveSwarmCtrl] cast1")
 		else:
 			# Cast 2: Back to Front (Grows)
 			unit.scale = Vector2(0.3, 0.3)
 			tween.tween_property(unit, "scale", Vector2(1.5, 1.5), LIFETIME)
+			print("[CleaveSwarmCtrl] cast2")
 			
 		# Fade out
 		unit.modulate = Color(1.2, 1.3, 2.0, 1.0) # Glowing white-blue
@@ -104,4 +106,4 @@ func _apply_cleave_damage():
 				if to_enemy.dot(forward) > 0.5: # 60 degree cone
 					if CombatManager:
 						CombatManager.request_interaction(player, enemy, "damage", {"amount": DAMAGE})
-						CombatManager._create_floating_text(enemy.global_position, "CLEAVE!", Color.CYAN)
+						print("Cleave hit enemy: ", enemy.name)
