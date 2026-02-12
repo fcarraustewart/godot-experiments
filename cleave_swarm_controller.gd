@@ -32,10 +32,10 @@ func cast_cleave(type: int):
 	swarm.frequency = 4.0
 	swarm.damping = 0.5
 	
-	# Visual setup - Use basic FlockUnit (circles)
+	# Visual setup - Use specialized Cleave Swarm Unit
 	var unit_packer = PackedScene.new()
 	var unit_node = Node2D.new()
-	unit_node.set_script(load("res://flock_unit.gd"))
+	unit_node.set_script(load("res://cleave_swarm_unit.gd"))
 	unit_packer.pack(unit_node)
 	swarm.unit_scene = unit_packer
 	
