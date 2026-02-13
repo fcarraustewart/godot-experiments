@@ -21,6 +21,7 @@ var wander_direction: float = 1.0
 var cast_cooldown_timer: float = 0.0
 var anim_timer: float = 0.0
 var current_anim_frame: float = 0.0
+var last_cast_success: bool = true
 
 var target: Node2D = null
 
@@ -75,6 +76,9 @@ func _process(delta):
 			velocity = Vector2.ZERO
 			if state_timer <= 0:
 				change_state(State.IDLE)
+		State.INTERRUPTED:
+			velocity = Vector2.ZERO
+			_process_interrupted(delta)
 				
 	# Apply animation frame
 	_update_animation(delta)
@@ -89,6 +93,11 @@ func _process(delta):
 		sprite.flip_h = false
 	else:
 		sprite.flip_h = true
+
+func _process_interrupted(delta):
+	state_timer -= delta
+	if state_timer <= 0:
+		change_state(State.IDLE)
 
 func _process_movement(delta):
 	# Simple AI: Wander if no target, Chase/Kite if target
@@ -126,6 +135,7 @@ func _check_attack_conditions():
 			start_casting()
 
 func start_casting():
+	last_cast_success = true
 	change_state(State.CASTING)
 	# Setup Cast Sprite
 	sprite.texture = TEX_CAST
@@ -150,25 +160,39 @@ func _process_casting_anim(delta):
 	
 func finish_cast():
 	if is_instance_valid(target):
+		var dist = global_position.distance_to(target.global_position)
+		if dist > CAST_RANGE + 50.0:
+			on_interaction_fail("OUT_OF_RANGE")
+			# on_interaction_fail handles state change usually, but we ensure last_cast_success is false
+			last_cast_success = false
+	else:
+		on_interaction_fail("TARGET_INVALID")
+		last_cast_success = false
+		
+	if last_cast_success:
 		var missile_ctrl = get_node("MissileController")
 		if missile_ctrl:
 			missile_ctrl.cast_missiles(target)
-	
-	cast_cooldown_timer = CAST_COOLDOWN
-	
-	# Transition to SUCCESS state
-	change_state(State.CASTING_COMPLETE)
-	sprite.texture = TEX_CAST_SUCCESS
-	# Dynamic frame calculation
-	var w = sprite.texture.get_width()
-	sprite.hframes = int(w / 32) 
-	sprite.vframes = 1
-	
-	current_anim_frame = 0.0
-	anim_timer = 0.0
+		
+		cast_cooldown_timer = CAST_COOLDOWN
+		
+		# Transition to SUCCESS state
+		change_state(State.CASTING_COMPLETE)
+		sprite.texture = TEX_CAST_SUCCESS
+		# Dynamic frame calculation
+		var w = sprite.texture.get_width()
+		sprite.hframes = int(w / 32) 
+		sprite.vframes = 1
+		
+		current_anim_frame = 0.0
+		anim_timer = 0.0
+	else:
+		# Fail state (already handled by on_interaction_fail usually)
+		if current_state == State.CASTING:
+			change_state(State.IDLE)
 
 func _process_cast_success_anim(delta):
-	var anim_speed = 50.0
+	var anim_speed = 25.0
 	current_anim_frame += delta * anim_speed
 	
 	if current_anim_frame >= sprite.hframes:
@@ -197,3 +221,16 @@ func _update_animation(_delta):
 func get_sword_hitbox() -> Rect2:
 	# Keep compatibility just in case
 	return Rect2(position, Vector2(10,10))
+
+func on_interaction_success(_msg, _meta):
+	pass
+
+func on_interaction_fail(reason: String):
+	if current_state == State.CASTING:
+		if reason == "OUT_OF_RANGE":
+			print("Arcane Mage cast interrupted: OUT OF RANGE")
+			if CombatManager:
+				CombatManager._create_floating_text(global_position, "INTERRUPTED", Color.ORANGE)
+			state_timer = 1.0 # Short stun/confusion
+			change_state(State.INTERRUPTED)
+			cast_cooldown_timer = 1.0 # Short cooldown penalty

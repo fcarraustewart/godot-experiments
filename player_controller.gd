@@ -282,7 +282,7 @@ func _ready():
 
 	# 7. Cleave Attack 1 (Front to Back)
 	attack2 = Sprite2D.new()
-	attack2.texture = load("res://art/inanimate-anims-cast1-instant.png")
+	attack2.texture = load("res://art/inanimate-anims-cast2-instant.png")
 	attack2.region_enabled = false
 	attack2.hframes = 4
 	attack2.vframes = 1
@@ -292,7 +292,7 @@ func _ready():
 
 	# 8. Cleave Attack 2 (Back to Front)
 	attack3 = Sprite2D.new()
-	attack3.texture = load("res://art/inanimate-anims-cast2-instant.png")
+	attack3.texture = load("res://art/inanimate-anims-cast1-instant.png")
 	attack3.region_enabled = false
 	attack3.hframes = 4
 	attack3.vframes = 1
@@ -606,7 +606,7 @@ func _on_input_action(action_name: String, data: Dictionary):
 				var type = 1 if cleave_count % 2 == 1 else 2
 				change_state(State.ATTACKING_2 if type == 1 else State.ATTACKING_3)
 				print("cast", type)
-				state_timer = ATTACK_DURATION
+				state_timer = ATTACK_DURATION * 2
 				emit_signal("cast_start", ATTACK_DURATION)
 				if is_instance_valid(cleave_swarm_ctrl):
 					cleave_swarm_ctrl.cast_cleave(type)
@@ -684,62 +684,57 @@ func sprite_swap():
 			var h_cnt = 1
 			active.region_enabled = true
 			
-			if active == running: 
-				h_cnt = running.hframes 
-			elif active == jumping:
-				h_cnt = jumping.hframes 
-			elif active == dash:
-				h_cnt = dash.hframes 
-			elif active == idle:
-				h_cnt = idle.hframes 
-			elif active == stationary:
-				h_cnt = stationary.hframes 
-			elif active == attack1:
-				h_cnt = attack1.hframes 
-			elif active == attack2:
-				h_cnt = attack2.hframes 
-			elif active == attack3:
-				h_cnt = attack3.hframes 
-			elif active == casting: 
-				h_cnt = casting.hframes
-			elif active == casting_success: 
-				h_cnt = casting_success.hframes
-			elif active == sprite: 
-				h_cnt = sprite.hframes
+			# Determine cell width based on texture height (Standard Grid assumption)
+			var cell_width = total_w / active.hframes # Square assumption for larger sprites
+
+			# Use the HARDCODED hframes as the source of truth for "How many frames SHOULD be there"
+			# This clips any padding/junk at the end of the strip.
+			var expected_width = active.hframes * cell_width
 			
-			# Define the playable region
-			active.region_rect = Rect2(0, 0, total_w, total_h)
-			active.hframes = h_cnt
+			# Safety check: If texture is smaller than expected, we can't invent pixels, 
+			# but we should still respect the grid.
+			if expected_width > total_w:
+				# Texture is too small for the declared frames?
+				# This implies either wrong hframes or wrong cell_width.
+				# Fallback to total_w
+				expected_width = total_w
+			
+			# Set Region
+			active.region_enabled = true
+			active.region_rect = Rect2(0, 0, expected_width, total_h)
+			
+			# hframes is already set correctly by _ready logic, but we ensure it matches our region
+			# Note: Godot divides region_rect.size.x by hframes.
+			# If we set region width to (hframes * 64), then each frame is exactly 64. Perfect.
 			active.vframes = 1
 			
 			# --- AUTO-SCALE ---
-			var frame_w = float(total_w) / float(h_cnt)
-			var frame_h = float(total_h) / float(active.vframes)
+			# We want to display at roughly 128px height on screen
+			var target_display_size = 128.0
 			
-			var target_size = 64
-
-			# Temporary fix: Action sheets have more padding/blank space, so we use a larger target size
-			var inanimate_sheets = [stationary, idle, attack2, attack3]
-			if active in inanimate_sheets:
-				target_size = 64*2.0
-			elif active != sprite:
-				target_size = 64*2.0
-				
-			var s_x = target_size / frame_w
-			var s_y = target_size / frame_h
+			# Calculate scale based on the CELL size, not the full texture
+			# This ensures consistent size even if texture had junk
+			var frame_w = float(cell_width)
+			var frame_h = float(total_h)
+			
+			var s_x = target_display_size / frame_w
+			var s_y = target_display_size / frame_h
 			
 			# Apply Scale & Facing
 			if (not facing_right):
 				active.scale = Vector2(-s_x, s_y)
 			else:
 				active.scale = Vector2(s_x, s_y)
-
+ 
 			# --- USER DEBUG PRINT ---
 			if Engine.get_process_frames() % 60 == 0:
-				print("[PlayerPhysics] VelY: %.1f | State: %s" % [
-					velocity.y,
-					State.keys()[current_state]
+				print("[PlayerPhysics] State: %s | TexW: %d | Frames: %d | Cell: %d" % [
+					State.keys()[current_state],
+					total_w,
+					active.hframes,
+					cell_width
 				])
+
 		
 		# Special colors for states
 		if active == casting or active == casting_success:
@@ -846,7 +841,9 @@ func update_animation(_delta):
 	match current_state:
 		State.ATTACKING, State.ATTACKING_2, State.ATTACKING_3:
 			var active = get_active_sprite()
-			var t = Time.get_ticks_msec() / 50.0 
+			var t : float = 0.0
+			if(active.frame < active.hframes):
+				t = Time.get_ticks_msec() / 100.0 
 			active.frame = (int(t)) % active.hframes
 			print("active.frame", active.frame)
 			print("active.hframe", active.hframes)

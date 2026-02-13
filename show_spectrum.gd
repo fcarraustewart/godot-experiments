@@ -228,6 +228,14 @@ func _ready():
 		if floor_node:
 			PhysicsManager.floor_y = floor_node.position.y
 			
+	# --- SPAWN ARCANE MAGES ---
+	for i in range(4): # Spawn 4 mages
+		var mage = load("res://arcane_mage.tscn").instantiate()
+		mage.position = Vector2(800 + i * 150, 150) # To the right
+		mage.name = "ArcaneMage_" + str(i)
+		enemies.append(mage)
+		add_child(mage)
+			
 	# --- SETUP BOSS ---
 	var boss = load("res://death_controller.gd").new()
 	boss.position = center + Vector2(200, -100)

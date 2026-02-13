@@ -81,7 +81,7 @@ func _process_combat_collisions():
 		# For Enemies, it's during frame == 1 (as seen in user code)
 		
 		# PLAYER ATTACKING
-		if source is PlayerController and source.current_state == source.State.ATTACKING:
+		if source.is_in_group("Player") and source.current_state == source.State.ATTACKING:
 			var spell_data = DataManager.get_spell("sword_attack")
 			var damage = spell_data.get("damage", 10.0)
 			var max_range = spell_data.get("range", 200.0)
@@ -107,7 +107,7 @@ func _process_combat_collisions():
 				var enemy_hitbox = source.get_sword_hitbox()
 				var targets = find_targets_in_hitbox(enemy_hitbox, source)
 				for target in targets:
-					if target is PlayerController:
+					if target.is_in_group("Player"):
 						print("Enemy hit player: ", target.name)
 						target.apply_hit(5.0, source)
 						request_interaction(source, target, "cc", {"cc_type": "slow", "duration": 1.0, "amount": 0.5})

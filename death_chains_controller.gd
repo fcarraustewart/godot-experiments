@@ -115,7 +115,7 @@ func try_cast(start_pos: Vector2) -> bool:
 			print("[DeathChains] Initiating Cast on: ", target.name)
 			current_target = target
 			is_casting = true
-			fire_death_chains()
+			# fire_death_chains() # Removed: Now called manually after cast time
 			return true
 		else:
 			# Only print periodically to avoid log spam

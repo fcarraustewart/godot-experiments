@@ -5,9 +5,9 @@ extends Node
 # Reuses logic from cleave_swarm_controller.gd
 
 @export var DAMAGE = 8.0
-@export var UNIT_COUNT = 1
-@export var LIFETIME = 1.0
-@export var SPEED = 200.0
+@export var UNIT_COUNT = 3
+@export var LIFETIME = 2.0
+@export var SPEED = 100.0
 
 var game_node: Node2D
 var host: Node2D # The caster (Mage)
@@ -77,12 +77,12 @@ func cast_missiles(target: Node2D):
 	# Let's stick to a simple timer loop in the swarm or here.
 	
 	# We'll create a thinker node to handle collision/damage for this specific swarm instance
-	var thinker = Node.new()
+	# We'll create a thinker node to handle collision/damage for this specific swarm instance
+	var thinker = MissileThinker.new()
 	thinker.name = "MissileLogic"
 	swarm.add_child(thinker)
 	
 	# Inject logic into thinker
-	thinker.set_script(MissileThinker)
 	thinker.setup(swarm, target, DAMAGE, LIFETIME)
 
 
@@ -104,6 +104,7 @@ class MissileThinker extends Node:
 	func _process(delta):
 		timer += delta
 		if timer > lifetime:
+			print_rich("[color=yellow]Missiles Despawning... (Lifetime: %s)[/color]" % lifetime)
 			swarm.queue_free()
 			return
 			

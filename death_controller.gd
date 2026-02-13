@@ -50,6 +50,7 @@ var death_chains_ctrl
 var target_player: Node2D
 var wander_timer: float = 0.0
 var wander_dir: Vector2 = Vector2.ZERO
+var last_cast_success: bool = true
 
 func _ready():
 	print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
@@ -115,10 +116,48 @@ func _process(delta):
 	if current_state == State.CASTING:
 		velocity = Vector2.ZERO
 		if state_timer <= 0:
-			change_state(State.RUNNING)
+			# Range Check at end of cast
+			if is_instance_valid(target_player):
+				var dist = global_position.distance_to(target_player.global_position)
+				if dist > death_chains_ctrl.RANGE:
+					on_interaction_fail("OUT_OF_RANGE")
+					last_cast_success = false
+			else:
+				on_interaction_fail("TARGET_INVALID")
+				last_cast_success = false
+			
+			if last_cast_success and death_chains_ctrl:
+				death_chains_ctrl.fire_death_chains()
+			
+			if not last_cast_success and death_chains_ctrl:
+				death_chains_ctrl.is_casting = false # Reset controller state
+
+			if current_state == State.CASTING:
+				change_state(State.RUNNING)
+	
+	if current_state == State.INTERRUPTED:
+		_process_interrupted(delta)
 			
 	_update_joint_dynamics(delta)
 	_update_visuals(delta)
+
+func _process_interrupted(delta):
+	state_timer -= delta
+	if state_timer <= 0:
+		change_state(State.IDLE)
+
+func on_interaction_success(_msg, _meta):
+	pass
+
+func on_interaction_fail(reason: String):
+	if current_state == State.CASTING:
+		if reason == "OUT_OF_RANGE":
+			print("[DeathController] Cast interrupted: OUT OF RANGE")
+			if CombatManager:
+				CombatManager._create_floating_text(global_position, "INTERRUPTED", Color.ORANGE)
+			state_timer = 2.0 # Boss gets annoyed for 2 seconds
+			change_state(State.INTERRUPTED)
+			
 
 func _process_ai(delta):
 	if Engine.get_frames_drawn() % 10 == 0:
@@ -138,6 +177,7 @@ func _process_ai(delta):
 			# Attempt to cast Death Chains while chasing
 			if death_chains_ctrl:
 				if death_chains_ctrl.try_cast(global_position):
+					last_cast_success = true
 					change_state(State.CASTING)
 					state_timer = 0.8 # Cast wind-up time
 			else:

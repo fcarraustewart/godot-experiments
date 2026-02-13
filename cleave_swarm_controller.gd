@@ -5,8 +5,8 @@ extends Node
 # Inspired by death_chains but closer range and perspective-based.
 
 @export var DAMAGE = 5.0
-@export var UNIT_COUNT = 6
-@export var LIFETIME = 0.8
+@export var UNIT_COUNT = 3
+@export var LIFETIME = 1.8
 @export var REPEL_FORCE = 400.0
 
 var game_node: Node2D
@@ -35,14 +35,14 @@ func cast_cleave(type: int):
 	# Visual setup - Use specialized Cleave Swarm Unit
 	var unit_packer = PackedScene.new()
 	var unit_node = Node2D.new()
-	unit_node.set_script(load("res://cleave_swarm_unit.gd"))
+	unit_node.set_script(load("res://flock_unit.gd"))
 	unit_packer.pack(unit_node)
 	swarm.unit_scene = unit_packer
 	
 	game_node.add_child(swarm)
 	
 	# Spawn from approximate left hand position
-	var offset = Vector2(-20, -10) if player.facing_right else Vector2(20, -10)
+	var offset = Vector2(30, -10) if player.facing_right else Vector2(-140, -10)
 	var spawn_pos = player.global_position + offset
 	swarm.global_position = spawn_pos
 	
@@ -72,13 +72,13 @@ func cast_cleave(type: int):
 		var tween = unit.create_tween().set_parallel(true)
 		if type == 1:
 			# Cast 1: Front to Back (Shrinks)
-			unit.scale = Vector2(1.5, 1.5)
+			unit.scale = Vector2(0.8, 0.8)
 			tween.tween_property(unit, "scale", Vector2(0.3, 0.3), LIFETIME)
 			print("[CleaveSwarmCtrl] cast1")
 		else:
 			# Cast 2: Back to Front (Grows)
-			unit.scale = Vector2(0.3, 0.3)
-			tween.tween_property(unit, "scale", Vector2(1.5, 1.5), LIFETIME)
+			unit.scale = Vector2(0.1, 0.1)
+			tween.tween_property(unit, "scale", Vector2(0.8, 0.8), LIFETIME)
 			print("[CleaveSwarmCtrl] cast2")
 			
 		# Fade out
