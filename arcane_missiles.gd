@@ -46,9 +46,6 @@ func cast_missiles(target: Node2D):
 	
 	game_node.add_child(swarm)
 	
-	# Spawn at caster position
-	swarm.global_position = host.global_position + Vector2(0, -30) # Slightly above center
-	
 	# Force spawn
 	swarm.spawn_flock()
 	
@@ -56,6 +53,14 @@ func cast_missiles(target: Node2D):
 	for unit in swarm.members:
 		if not is_instance_valid(unit): continue
 		
+		# --- ADD INDIVIDUAL PROJECTILE GLOW ---
+		var light = load("res://light_spirit.gd").new()
+		light.color = Color(1.0, 0.4, 1.0, 0.6) # Arcane Purple/Pink
+		light.radius = 32.0
+		light.intensity = 1.0
+		unit.add_child(light) # Light now follows each missile!
+		# --------------------------------------
+
 		# Random spread
 		var angle = randf_range(0, TAU)
 		var burst = Vector2(cos(angle), sin(angle)) * 100.0

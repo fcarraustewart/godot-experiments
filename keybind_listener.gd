@@ -48,8 +48,8 @@ func _process(_delta):
 func _process_movement_input():
 	# THROTTLE (Advance/Backup)
 	var throttle = 0.0
-	if Input.is_key_pressed(KEY_W): throttle += 1.0
-	if Input.is_key_pressed(KEY_S): throttle -= 1.0 # Note: Back to -1.0 for Backup logic
+	if Input.is_key_pressed(KEY_D): throttle += 1.0
+	if Input.is_key_pressed(KEY_A): throttle -= 1.0 # Note: Back to -1.0 for Backup logic
 	
 	# STEERING
 	var steer_vec = Vector2.ZERO

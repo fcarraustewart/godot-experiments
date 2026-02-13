@@ -4,7 +4,7 @@ extends Camera2D
 # Handles smooth player following with a slight delay (interpolation)
 
 @export var lerp_speed: float = 4.0
-@export var target_offset: Vector2 = Vector2.ZERO
+@export var target_offset: Vector2 = Vector2(1.0, 64.0)
 @export var zoom_lerp_speed: float = 2.0
 
 var target: Node2D

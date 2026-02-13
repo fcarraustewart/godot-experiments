@@ -23,7 +23,7 @@ void fragment() {
     // float heat = sin(UV.x * 20.0 - TIME * fire_speed) * 0.5 + 0.5;
     // vec3 heat_tint = mix(vec3(1.0, 0.4, 0.0), vec3(1.0, 0.8, 0.2), heat);
     
-    // Apply texture and tint
-    COLOR.rgb = tex.rgb /*  * heat_tint * flicker*/;
-    COLOR.a = tex.a;
+    // Apply texture and tint with modulate
+    COLOR.rgb = tex.rgb * COLOR.rgb;
+    COLOR.a = tex.a * COLOR.a;
 }
