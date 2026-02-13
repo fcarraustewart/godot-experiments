@@ -152,10 +152,11 @@ func start_casting():
 func _process_casting_anim(delta):
 	anim_timer += delta
 	# 10 FPS
-	var anim_speed = 10.0
+	var anim_speed = 12.0
 	current_anim_frame += delta * anim_speed
 	
-	if current_anim_frame >= sprite.hframes:
+	if current_anim_frame > sprite.hframes + 3.5: # Slightly before the end to trigger on time
+		current_anim_frame = sprite.hframes - 1 # Stay on last frame until we finish
 		finish_cast()
 	
 func finish_cast():
@@ -192,10 +193,15 @@ func finish_cast():
 			change_state(State.IDLE)
 
 func _process_cast_success_anim(delta):
-	var anim_speed = 25.0
+	var anim_speed = 18.0
 	current_anim_frame += delta * anim_speed
-	
+	anim_timer += delta
+
 	if current_anim_frame >= sprite.hframes:
+		# Done
+		current_anim_frame = sprite.hframes - 1 # Stay on last frame until we switch back to combat sprite
+	
+	if anim_timer > sprite.hframes + 2.0:
 		# Done
 		change_state(State.IDLE)
 		sprite.texture = TEX_COMBAT

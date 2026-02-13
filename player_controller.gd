@@ -376,6 +376,8 @@ func _process(delta):
 	match current_state:
 		State.IDLE:
 			process_idle(delta)
+		State.STATIONARY:
+			process_idle(delta)
 		State.RUNNING:
 			process_running(delta)
 		State.ATTACKING:
@@ -396,8 +398,6 @@ func _process(delta):
 			process_interrupted(delta)
 		State.HURT:
 			process_hurt(delta) # Stays here but is avoided in change_state
-		State.STATIONARY:
-			process_idle(delta)
 		State.CASTING_COMPLETE:
 			# Temporary state to handle post-cast logic if needed
 			process_casting_complete(delta)
@@ -414,6 +414,9 @@ func _process(delta):
 
 func process_idle(delta):
 	idle_timer += delta
+	check_movement_input()
+	check_action_input()
+	update_aim_indicator()
 	if current_state == State.IDLE:
 		if idle_timer > 5.0:
 			idle_timer = 0.0
@@ -422,9 +425,6 @@ func process_idle(delta):
 		if idle_timer > 2.0:
 			idle_timer = 0.0
 			change_state(State.IDLE)
-	check_movement_input()
-	check_action_input()
-	update_aim_indicator()
 
 func process_running(_delta):
 	check_movement_input()
@@ -555,7 +555,7 @@ func check_movement_input():
 
 	# Update Animation States
 	if move_dir != 0:
-		if current_state == State.IDLE:
+		if current_state == State.IDLE || current_state == State.STATIONARY: #todo: join separate the two states only on animation part clearly
 			change_state(State.RUNNING)
 	elif current_state == State.RUNNING:
 		change_state(State.IDLE)
@@ -710,16 +710,20 @@ func sprite_swap():
 			
 			# --- AUTO-SCALE ---
 			# We want to display at roughly 128px height on screen
-			var target_display_size = 128.0
+			var target_display_size : float = 128.0
 			
 			# Calculate scale based on the CELL size, not the full texture
 			# This ensures consistent size even if texture had junk
 			var frame_w = float(cell_width)
 			var frame_h = float(total_h)
 			
+			if(active == stationary):
+				frame_w = 128 # we had a problem here with the export for idle 128 vs stationary 64
+				frame_h = 128
+
 			var s_x = target_display_size / frame_w
 			var s_y = target_display_size / frame_h
-			
+
 			# Apply Scale & Facing
 			if (not facing_right):
 				active.scale = Vector2(-s_x, s_y)
@@ -738,7 +742,7 @@ func sprite_swap():
 		
 		# Special colors for states
 		if active == casting or active == casting_success:
-			active.modulate = Color(1.0, 0.6, 1.9, 1.0)
+			active.modulate = Color(1.0, 1.0, 1.9, 1.0)
 		elif current_state == State.STUNNED:
 			active.modulate = Color(0.5, 0.5, 0.5)
 		else:
@@ -746,8 +750,8 @@ func sprite_swap():
 
 func reset_animations():
 	sprite_swap()
-	for sprite in [sprite, casting, casting_success, running, jumping, dash, attack1, attack2, attack3, idle, stationary]:
-		sprite.frame = 0
+	for s in [sprite, casting, casting_success, running, jumping, dash, attack1, attack2, attack3, idle, stationary]:
+		s.frame = 0
 
 func change_state(new_state):
 	if current_state == new_state: return
@@ -876,9 +880,8 @@ func update_animation(_delta):
 			var t = Time.get_ticks_msec() / 150.0 
 			idle.frame = (int(t)) % idle.hframes
 		State.STATIONARY:
-			if stationary.frame < stationary.hframes-2:
-				var t = Time.get_ticks_msec() / 400.0 
-				stationary.frame = (int(t)) % stationary.hframes
+			var t = Time.get_ticks_msec() / 200.0 
+			stationary.frame = (int(t)) % stationary.hframes
 
 # --- HITBOX HELPERS (For compatibility with Main Scene collision check) ---
 const SWORD_HITBOX_SIZE = Vector2(60, 13.3)

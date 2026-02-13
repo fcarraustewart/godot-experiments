@@ -6,7 +6,7 @@ extends Node
 
 @export var DAMAGE = 8.0
 @export var UNIT_COUNT = 3
-@export var LIFETIME = 2.0
+@export var LIFETIME = 1.50
 @export var SPEED = 100.0
 
 var game_node: Node2D

@@ -94,7 +94,7 @@ func _ready():
 	
 	# --- SETUP FLOOR ---
 	var floor_rect = ColorRect.new()
-	floor_rect.size = Vector2(SCREEN_WIDTH*8, 200)
+	floor_rect.size = Vector2(SCREEN_WIDTH*16, 200)
 	floor_rect.position = Vector2(0, SCREEN_HEIGHT - 50)
 	floor_rect.color = Color(0.1, 0.1, 0.15, 0.8) # Dark blueish gray
 	floor_rect.name = "Floor"
@@ -111,17 +111,11 @@ func _ready():
 	# -------------------------------
 	
 	# ---- SETUP CROW PET ---
-	for i in range(1):
-		var crow = load("res://crow_pet.gd").new()
-		crow.position = player.position + Vector2(-50 * (i+1), -50)
-		crow.assign_host(player)
-		add_child(crow)
+	var crow = load("res://crow_pet.gd").new()
+	crow.position = player.position + Vector2(-50, -50)
+	crow.assign_host(player)
+	add_child(crow)
 	
-	# ---- SETUP WEAPON CONTROLLER (AXE) ---
-	var axe = load("res://weapon_controller.gd").new()
-	axe.host = player
-	player.set("axe_ctrl", axe) # Link to player for attack sync
-	add_child(axe)
 
 	var dust_list = []
 	dust_list.append(load("res://dust_puff.gd").new())
@@ -158,31 +152,6 @@ func _ready():
 	dust_swarm.target_node = dust_list[0] # Follow the axe for cool effect
 	add_child(dust_swarm)
 		
-	# ---- SETUP FLOCK ---
-	var swarm = BaseFlockSwarm.new()
-	swarm.position = axe.position + Vector2(0, -100) # Spawn slightly above
-	
-	# We need to package the unit script as a PackedScene, or just assign it if the script handles new()
-	# Since base_flock_swarm expects a PackedScene, let's create a temporary one or modify it to accept scripts
-	# For now, let's just make a dummy packed scene wrapper
-	var unit_packer = PackedScene.new()
-	var unit_node = Node2D.new()
-	unit_node.set_script(load("res://flock_unit.gd"))
-	unit_packer.pack(unit_node)
-	
-	swarm.unit_count = 4
-	swarm.spawn_radius = 0
-	swarm.separation_weight = 0.401   # High separation to keep them fluffy
-	swarm.alignment_weight = -0.61
-	swarm.cohesion_weight = -0.2    # Low cohesion so they drift a bit
-	swarm.target_attraction_weight = 1.40
-	swarm.frequency = 16.50
-	swarm.damping = 1.20
-	swarm.response = 0.0
-	swarm.unit_scene = unit_packer
-	swarm.target_node = axe # Follow the axe
-	add_child(swarm)
-
 	# --- SETUP HUD ---
 	game_ui = load("res://game_ui.gd").new()
 	game_ui.player_node = player
@@ -231,14 +200,14 @@ func _ready():
 	# --- SPAWN ARCANE MAGES ---
 	for i in range(4): # Spawn 4 mages
 		var mage = load("res://arcane_mage.tscn").instantiate()
-		mage.position = Vector2(800 + i * 150, 150) # To the right
+		mage.position = Vector2(800 + i * 900, 150) # To the right
 		mage.name = "ArcaneMage_" + str(i)
 		enemies.append(mage)
 		add_child(mage)
 			
 	# --- SETUP BOSS ---
 	var boss = load("res://death_controller.gd").new()
-	boss.position = center + Vector2(200, -100)
+	boss.position = center + Vector2(3000, -100)
 	boss.name = "DeathBoss"
 	enemies.append(boss)
 	add_child(boss)

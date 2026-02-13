@@ -31,13 +31,13 @@ func _ready():
 		Vector2(-5, 4)   # Wing Right
 	])
 	body_shape.polygon = points
-	body_shape.color = Color(1.1, 0.1, 0.1, 1.0)
+	body_shape.color = Color(0.4, 0.4, 0.4, 1.0)
 	add_child(body_shape)
 	
 	# Add shadow/trail
 	trail = Line2D.new()
-	trail.width = 2.0
-	trail.default_color = Color(1.40, 1.40, 1.40, 0.5)
+	trail.width = 0.4
+	trail.default_color = Color(1.40, 1.40, 1.40, 0.2)
 	trail.points = PackedVector2Array([Vector2(-2.5, 0), Vector2(-5, 0), Vector2(-10, 0)])
 	add_child(trail)
 

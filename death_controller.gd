@@ -160,8 +160,6 @@ func on_interaction_fail(reason: String):
 			
 
 func _process_ai(delta):
-	if Engine.get_frames_drawn() % 10 == 0:
-		print("--- DEATH AI TICK --- Target: ", is_instance_valid(target_player))
 	# Simple Aggro/Chase
 	if is_instance_valid(target_player):
 		var dist = global_position.distance_to(target_player.global_position)

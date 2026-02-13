@@ -8,9 +8,9 @@ const IDLE_F = 2.0
 const IDLE_Z = 0.6
 const IDLE_R = 1.2
 
-const ATTACK_F = 5.0
-const ATTACK_Z = 0.4
-const ATTACK_R = 3.0
+const ATTACK_F = 2.0
+const ATTACK_Z = 0.7
+const ATTACK_R = 1.3
 
 var is_procedural_attacking = false
 var attack_angle = 0.0
