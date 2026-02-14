@@ -56,6 +56,7 @@ var time_until_next_lightning = 5.0
 # --- PLAYER CONTROLLER ---
 var player: PlayerController
 var player_light: LightSpirit
+var moon_light: LightSpirit
 # -------------------------
 
 # --- UI ---
@@ -96,6 +97,31 @@ func setup_chill_background():
 		])
 		mtn.color = Color(0.05, 0.05, 0.2).lightened(0.05 * (i % 3))
 		sky.add_child(mtn)
+
+func setup_moon():
+	print("Setting up Moon...")
+	moon_light = load("res://light_spirit.gd").new()
+	moon_light.name = "MoonLight"
+	moon_light.color = Color(0.8, 0.9, 1.0, 0.3) # Soft moonlight
+	moon_light.radius = 700.0
+	moon_light.intensity = 0.5
+	# High up in the sky
+	moon_light.position = Vector2(SCREEN_WIDTH * 0.7, -200)
+	add_child(moon_light)
+	
+	# Add a visual Moon sprite (Procedural texture)
+	var moon_visual = Sprite2D.new()
+	var gradient = Gradient.new()
+	gradient.offsets = [0.0, 0.8, 1.0]
+	gradient.colors = [Color(1, 1, 0.9, 1.0), Color(0.9, 0.9, 1.0, 0.8), Color(1, 1, 1, 0.0)]
+	var tex = GradientTexture2D.new()
+	tex.gradient = gradient
+	tex.fill = GradientTexture2D.FILL_RADIAL
+	tex.width = 128
+	tex.height = 128
+	moon_visual.texture = tex
+	moon_visual.z_index = -99
+	moon_light.add_child(moon_visual)
 
 
 func setup_trees():
@@ -197,7 +223,7 @@ func setup_ponds():
 		# Random Position in the ground area
 		var x_pos = randf_range(-1500, 4500)
 		# Much higher on the screen (clamped to the ground area visually)
-		var y_pos = randf_range(tree_base_y + 100, ground_y - 20) 
+		var y_pos = randf_range(tree_base_y + 256, ground_y - 32) 
 		pond_container.position = Vector2(x_pos, y_pos)
 		
 		# The Water Surface
@@ -239,10 +265,21 @@ func setup_ponds():
 		splashes.z_index = -4
 		pond_container.add_child(splashes)
 		
+		# --- ADD POND GLOW ---
+		var pond_light = load("res://light_spirit.gd").new()
+		pond_light.color = Color(0.2, 0.4, 0.8, 0.2) # Soft blue glow from water
+		pond_light.radius = w * 1.5
+		pond_light.intensity = 0.4
+		pond_container.add_child(pond_light)
+		# ---------------------
+		
 		add_child(pond_container)
 		all_ponds.append(pond_container)
 
 func setup_platforms():
+	if PhysicsManager:
+		PhysicsManager.clear_platforms()
+	
 	print("Spawning jump platforms...")
 	var ground_y = SCREEN_HEIGHT - 50
 	for i in range(8):
@@ -274,39 +311,57 @@ func setup_tree_rays():
 		rays.add_point(Vector2(0, -200))
 		tree.add_child(rays)
 		
+		# Make rays pop in front of trees and characters
+		rays.z_index = 20
+		rays.top_level = true # Ignore parent position/modulation
+		rays.material = CanvasItemMaterial.new()
+		rays.material.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+		
 		# Give them a soft gradient look
 		var gradient = Gradient.new()
-		gradient.colors = [Color(1, 1, 0.8, 0.3), Color(1, 1, 0.8, 0.0)]
+		gradient.colors = [Color(1, 1, 0.8, 1.0), Color(1, 1, 0.8, 0.0)] # Base color opaque for modulation to work
 		rays.gradient = gradient
 
 func update_light_effects(delta):
-	# 1. Update Tree Rays (Follow Light Sources)
-	var lights = get_tree().get_nodes_in_group("light_spirits") # Handle group if we add them
-	# Actually, let's just use the player_light for now or search children
+	# Update Moon position (Parallax-ish)
+	if moon_light:
+		# Shift moon slightly based on camera but keep it high
+		moon_light.position.x = player.position.x + 200
+	
+	# 1. Update Tree Rays (Follow Moon or Point Lights)
 	var all_lights = []
+	if player_light: all_lights.append(player_light)
+	if moon_light: all_lights.append(moon_light)
+	
 	for child in get_children():
-		if child.name.contains("Light") or child is LightSpirit:
+		if child is LightSpirit and child != player_light and child != moon_light:
 			all_lights.append(child)
 	
 	for tree in all_trees:
 		var rays = tree.get_node_or_null("LightRays")
 		if not rays: continue
 		
-		var nearest_light = null
-		var min_dist = 2000.0
+		# Match tree position
+		rays.global_position = tree.global_position
+		
+		# Find the most relevant light (weighted by distance/intensity)
+		var factor_light = moon_light
+		var min_score = 10000.0
+		
 		for l in all_lights:
 			var d = tree.global_position.distance_to(l.global_position)
-			if d < min_dist:
-				min_dist = d
-				nearest_light = l
+			var score = d / l.intensity
+			if score < min_score:
+				min_score = score
+				factor_light = l
 		
-		if nearest_light and min_dist < nearest_light.radius * 2.0:
-			var dir = (tree.global_position - nearest_light.global_position).normalized()
-			rays.points[1] = dir * 200.0
-			# Rays should point AWAY from light (casting through leaves)
-			# Or TOWARDS for highlights? User said "follow the light sources".
-			# Usually God rays point AWAY.
-			rays.modulate.a = lerp(rays.modulate.a, clamp(1.0 - (min_dist / (nearest_light.radius * 2.0)), 0.0, 1.0), delta * 5.0)
+		if factor_light:
+			var dir = (tree.global_position - factor_light.global_position).normalized()
+			rays.points[1] = dir * 250.0 # Ray length
+			
+			var dist = tree.global_position.distance_to(factor_light.global_position)
+			var alpha_target = clamp(1.2 - (dist / (factor_light.radius * 2.5)), 0.0, 0.6)
+			rays.modulate.a = lerp(rays.modulate.a, alpha_target, delta * 3.0)
 		else:
 			rays.modulate.a = lerp(rays.modulate.a, 0.0, delta * 2.0)
 
@@ -314,15 +369,24 @@ func update_light_effects(delta):
 	var entities = [player] + enemies
 	for ent in entities:
 		if not is_instance_valid(ent): continue
-		var base_mod = Color(1,1,1,1)
 		var boost = 0.0
 		for l in all_lights:
 			var dist = ent.global_position.distance_to(l.global_position)
 			if dist < l.radius:
-				boost += (1.0 - (dist / l.radius)) * l.intensity * 0.5
+				boost += (1.0 - (dist / l.radius)) * l.intensity * 0.7
 		
-		# Apply boost to modulation (making them glowy when near light)
-		ent.modulate = Color(1.0 + boost, 1.0 + boost, 1.0 + boost * 0.5, 1.0)
+		var lit_color = Color(1.0 + boost, 1.0 + boost, 1.0 + boost * 0.5, 1.0)
+		
+		# If entity supports external lighting, use that (preferred for Player)
+		if "external_lighting_modulate" in ent:
+			ent.external_lighting_modulate = lit_color
+		else:
+			# Apply directly to sprite
+			if ent.has_method("get_active_sprite"):
+				var s = ent.call("get_active_sprite")
+				if s: s.modulate = lit_color
+			elif "sprite" in ent:
+				if ent.sprite: ent.sprite.modulate = lit_color
 
 func setup_reflections():
 	# We'll create reflections for the player and enemies
@@ -408,13 +472,26 @@ func update_reflections():
 			rs.modulate = Color(0.2, 0.4, 0.8, 0.6) # Darker, more blue
 			rs.offset = active_sprite.offset
 			
-			# OPTIONAL: Apply pond-light shimmer if nearest light is close
-			# (Skipping for now to keep it clean)
+			# ADD MOON REFLECTION IN POND
+			var moon_ref = reflection.get_node_or_null("MoonRef")
+			if not moon_ref and moon_light:
+				moon_ref = Sprite2D.new()
+				moon_ref.name = "MoonRef"
+				moon_ref.texture = moon_light.get_child(0).texture
+				reflection.add_child(moon_ref)
+			
+			if moon_ref and moon_light:
+				# Simple parallax reflection: offset based on pond pos vs moon pos
+				var rel_pos = (moon_light.global_position - current_pond.global_position)
+				moon_ref.position = -rel_pos.normalized() * 30.0
+				moon_ref.modulate = Color(1, 1, 1, 0.2)
+				moon_ref.scale = Vector2(0.4, 0.2) # Flattened on water
 		else:
 			reflection.visible = false
 
 func _ready():
 	setup_chill_background()
+	setup_moon()
 	setup_trees()
 	setup_grass()
 	setup_ponds()
@@ -469,6 +546,9 @@ func _ready():
 	player.position = center
 	player.global_position = player.position
 	add_child(player)
+	
+	if CombatManager:
+		CombatManager.register_entity(player)
 	# -------------------------------
 	
 	# ---- SETUP CROW PET ---
@@ -545,6 +625,9 @@ func _ready():
 		enemies.append(enemy)
 		add_child(enemy)
 		
+		if CombatManager:
+			CombatManager.register_entity(enemy)
+		
 		# Give a crow pet to the second enemy
 		if i == 1:
 			var enemy_crow = load("res://crow_pet.gd").new()
@@ -565,6 +648,9 @@ func _ready():
 		mage.name = "ArcaneMage_" + str(i)
 		enemies.append(mage)
 		add_child(mage)
+		
+		if CombatManager:
+			CombatManager.register_entity(mage)
 			
 	# --- SETUP BOSS ---
 	var boss = load("res://death_controller.gd").new()
@@ -572,6 +658,9 @@ func _ready():
 	enemies.append(boss)
 	add_child(boss)
 	print("[ShowSpectrum] BOSS ADDED: ", boss.name)
+	
+	if CombatManager:
+		CombatManager.register_entity(boss)
 	
 	# --- SETUP PLAYER LIGHT BEACON ---
 	player_light = load("res://light_spirit.gd").new()

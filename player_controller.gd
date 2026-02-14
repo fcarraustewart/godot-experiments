@@ -66,6 +66,8 @@ var is_slowed_active = false
 var active_slow_factor = 1.0
 var last_cast_success = true
 
+var external_lighting_modulate: Color = Color.WHITE
+
 
 
 # --- INPUT STATE (Populated by KeybindListener) ---
@@ -740,13 +742,15 @@ func sprite_swap():
 				])
 
 		
-		# Special colors for states
+		# Special colors combined with external lighting
+		var state_mod = Color.WHITE
 		if active == casting or active == casting_success:
-			active.modulate = Color(1.0, 1.0, 1.9, 1.0)
+			state_mod = Color(1.0, 1.0, 1.9, 1.0)
 		elif current_state == State.STUNNED:
-			active.modulate = Color(0.5, 0.5, 0.5)
-		else:
-			active.modulate = Color.WHITE
+			state_mod = Color(0.5, 0.5, 0.5)
+		
+		# Multiply state color by lighting color
+		active.modulate = state_mod * external_lighting_modulate
 
 func reset_animations():
 	sprite_swap()

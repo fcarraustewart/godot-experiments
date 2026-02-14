@@ -10,6 +10,9 @@ var simulated_objects = []
 var floor_y = 450.0 # Default base floor
 var all_platforms = [] # Array of Rect2 representing solid blocks
 
+func clear_platforms():
+	all_platforms.clear()
+
 var native_manager = null
 
 func _ready():
@@ -108,28 +111,29 @@ func _simulate_character_physics(char_node, delta):
 	
 	# 1. Platform & Floor Detection
 	var current_floor_y = floor_y
-	var standing_on_platform = false
 	
 	# Check Platforms
-	for plat in all_platforms:
-		# Check horizontal range
-		if char_node.global_position.x >= plat.position.x and char_node.global_position.x <= plat.position.x + plat.size.x:
-			# Check if we are above the platform and falling into it
-			var plat_top = plat.position.y
-			if char_node.global_position.y + feet_offset <= plat_top + 10 and char_node.global_position.y + feet_offset + velocity.y * delta >= plat_top:
-				if velocity.y >= 0: # Only land if falling or grounded
-					current_floor_y = plat_top
-					standing_on_platform = true
-					break
+	if velocity.y >= 0: # Only land if falling or stationary
+		for plat in all_platforms:
+			# Check horizontal range
+			if char_node.global_position.x >= plat.position.x and char_node.global_position.x <= plat.position.x + plat.size.x:
+				var plat_top = plat.position.y
+				# Check if we were ABOVE the platform in the previous frame
+				var prev_feet_y = char_node.global_position.y - velocity.y * delta + feet_offset
+				if prev_feet_y <= plat_top + 10:
+					if char_node.global_position.y + feet_offset >= plat_top - 5:
+						# Land on platform if overlapping the top threshold
+						if char_node.global_position.y + feet_offset < plat_top + 20:
+							current_floor_y = plat_top
+							break
 	
-	var on_floor = char_node.global_position.y + feet_offset >= current_floor_y
+	var on_floor = char_node.global_position.y + feet_offset >= current_floor_y - 1.5
 	
-	if on_floor:
-		if velocity.y > 0:
-			velocity.y = 0
+	if on_floor and velocity.y >= 0:
+		velocity.y = 0
 		char_node.position.y = current_floor_y - feet_offset
 	else:
-		# 2. Apply Gravity
+		# 2. Apply Gravity (Only if NOT snapped to floor)
 		velocity += gravity * delta
 	
 	# 3. Integration (Move the node)

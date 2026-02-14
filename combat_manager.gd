@@ -12,6 +12,8 @@ signal effect_applied(target: Node, effect_type: String, duration: float)
 var current_game_node: Node2D
 
 var registered_entities = [] # List of combat-capable nodes (Player, Enemies)
+var current_target_node: Node2D = null
+var target_shader = load("res://target_glow.gdshader")
 
 # --- REGISTRATION ---
 
@@ -50,7 +52,40 @@ func get_nearest_target(from_pos: Vector2, max_range: float, exclude: Node2D = n
 			if d < min_dist:
 				min_dist = d
 				nearest = entity
+	
+	set_visual_target(nearest)
 	return nearest
+
+func set_visual_target(node: Node2D):
+	if current_target_node == node: return
+	
+	# Clear old target glow
+	if is_instance_valid(current_target_node):
+		var s = _get_sprite(current_target_node)
+		if s: s.material = null
+	
+	current_target_node = node
+	
+	# Apply new target glow
+	if is_instance_valid(current_target_node):
+		var s = _get_sprite(current_target_node)
+		if s:
+			var mat = ShaderMaterial.new()
+			mat.shader = target_shader
+			mat.set_shader_parameter("border_color", Color(1.0, 0.6, 0.0, 1.0)) # Target Orange
+			mat.set_shader_parameter("border_width", 2.0)
+			mat.set_shader_parameter("glow_intensity", 2.5)
+			s.material = mat
+
+func _get_sprite(node: Node2D) -> CanvasItem:
+	if "sprite" in node: return node.sprite
+	if node.has_node("Sprite2D"): return node.get_node("Sprite2D")
+	if node.has_node("AnimatedSprite2D"): return node.get_node("AnimatedSprite2D")
+	# Search children
+	for child in node.get_children():
+		if child is Sprite2D or child is AnimatedSprite2D:
+			return child
+	return null
 
 # --- HITBOX LOGIC ---
 
