@@ -11,6 +11,8 @@ var state_timer: float = 0.0
 var velocity: Vector2 = Vector2.ZERO
 var facing_right: bool = true
 var is_on_floor_physics: bool = false
+var external_lighting_modulate: Color = Color.WHITE
+var target_glow_active: bool = false
 
 # --- CONFIG ---
 const BODY_HURTBOX_SIZE = Vector2(64, 64)
@@ -56,4 +58,6 @@ func apply_hit(amount: float, source: Node2D):
 func change_state(new_state: State):
 	if current_state == new_state: return
 	current_state = new_state
-	# Logic to reset common state things if needed
+
+func get_active_sprite() -> Sprite2D:
+	return null # Overridden by children

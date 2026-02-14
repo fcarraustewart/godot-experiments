@@ -97,9 +97,6 @@ func _setup_part(path: String) -> Sprite2D:
 func is_enemy(): return true
 
 func _process(delta):
-	if Engine.get_frames_drawn() % 30 == 0:
-		print("[DeathController] PROCESS_CHECK - Frame: ", Engine.get_frames_drawn())
-
 	state_timer -= delta
 	
 	# Find target player if needed
@@ -253,6 +250,13 @@ func _update_visuals(delta):
 	_rotate_part_by_velocity(body, body_sim.id, delta, 1.0)
 	_rotate_part_by_velocity(rh, rh_sim.id, delta, 5.0)
 	_rotate_part_by_velocity(lh, lh_sim.id, delta, 5.0)
+	
+	# --- APPLY LIGHTING ---
+	skull.modulate = external_lighting_modulate
+	body.modulate = external_lighting_modulate
+	rh.modulate = external_lighting_modulate
+	lh.modulate = external_lighting_modulate
+	# ----------------------
 
 func _rotate_part_by_velocity(part: Node2D, sim_id: String, delta: float, factor: float):
 	var vel = PhysicsManager.get_second_order_velocity(sim_id)
@@ -266,3 +270,6 @@ func apply_physics():
 func get_sword_hitbox() -> Rect2:
 	# Boss doesn't have a sword attack yet, returning empty box
 	return Rect2()
+
+func get_active_sprite() -> Sprite2D:
+	return skull

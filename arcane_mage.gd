@@ -210,6 +210,10 @@ func _process_cast_success_anim(delta):
 		sprite.vframes = 1
 
 func _update_animation(_delta):
+	# --- APPLY LIGHTING ---
+	sprite.modulate = external_lighting_modulate
+	# ----------------------
+	
 	# Apply frame to sprite
 	if current_state == State.CASTING or current_state == State.CASTING_COMPLETE:
 		sprite.frame = int(current_anim_frame) % sprite.hframes
@@ -227,6 +231,9 @@ func _update_animation(_delta):
 func get_sword_hitbox() -> Rect2:
 	# Keep compatibility just in case
 	return Rect2(position, Vector2(10,10))
+
+func get_active_sprite() -> Sprite2D:
+	return sprite
 
 func on_interaction_success(_msg, _meta):
 	pass

@@ -52,6 +52,10 @@ func _process(delta):
 		else:
 			sprite.scale = Vector2(-s_x, s_y) # Flip via scale
 			
+		# --- APPLY LIGHTING ---
+		sprite.modulate = external_lighting_modulate
+		# ----------------------
+
 		if velocity.x != 0:
 			sprite.frame = (int(Time.get_ticks_msec() / 200.0) % 3)
 		else:
@@ -80,3 +84,6 @@ func get_sword_hitbox() -> Rect2:
 	
 	var top_left = position + offset - (size / 2.0)
 	return Rect2(top_left, size)
+
+func get_active_sprite() -> Sprite2D:
+	return sprite

@@ -26,6 +26,8 @@ const SUCCESS_TEXTURES = {
 enum Reason { SILENCED, STUNNED, KICKED, PARRIED, HIT, OTHER }
 var casting_time = 10.0
 var hit_count: int = 0
+var diminishing_return = 0.0
+
 # --- COMPONENTS ---
 var sprite: Sprite2D
 var idle: Sprite2D
@@ -65,8 +67,6 @@ var is_rooted_active = false
 var is_slowed_active = false
 var active_slow_factor = 1.0
 var last_cast_success = true
-
-var external_lighting_modulate: Color = Color.WHITE
 
 
 
@@ -116,7 +116,6 @@ func apply_slow(duration: int, slow_amount: float):
 func apply_root(duration: float):
 	emit_signal("rooted", duration)
 
-
 func _on_cast_interrupted(reason: Reason):
 	print("Player detected cast interruption!")
 	
@@ -130,9 +129,12 @@ func _on_cast_interrupted(reason: Reason):
 			change_state(State.STUNNED)
 		
 		Reason.HIT:
-			print("Player hit %d during cast. Adding time 0.01!", hit_count)
-			if(hit_count < 3):
-				state_timer -= 0.01 # brief draw back on hit
+			print("Player hit during cast. Adding time 0.01!", hit_count)
+			diminishing_return = pow(0.8, hit_count) # Each hit adds less time, caps at ~5 hits for 1 second
+			if(state_timer > 0.0 and state_timer < casting_time):
+				if(diminishing_return < 3):
+					state_timer -= 0.01 * diminishing_return # brief draw back on hit
+
 
 		Reason.OTHER:
 			change_state(State.IDLE)

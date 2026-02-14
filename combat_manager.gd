@@ -53,29 +53,49 @@ func get_nearest_target(from_pos: Vector2, max_range: float, exclude: Node2D = n
 				min_dist = d
 				nearest = entity
 	
-	set_visual_target(nearest)
+	if(faction == Faction.ENEMY):
+		set_visual_target(nearest)
+		
 	return nearest
 
 func set_visual_target(node: Node2D):
 	if current_target_node == node: return
 	
-	# Clear old target glow
+	# Clear old target glow flag
 	if is_instance_valid(current_target_node):
+		if "target_glow_active" in current_target_node:
+			print("[CombatManager] Clearing target glow on: ", current_target_node.name)
+			current_target_node.target_glow_active = false
 		var s = _get_sprite(current_target_node)
 		if s: s.material = null
 	
 	current_target_node = node
 	
-	# Apply new target glow
+	# Set new target glow flag
 	if is_instance_valid(current_target_node):
-		var s = _get_sprite(current_target_node)
-		if s:
-			var mat = ShaderMaterial.new()
-			mat.shader = target_shader
-			mat.set_shader_parameter("border_color", Color(1.0, 0.6, 0.0, 1.0)) # Target Orange
-			mat.set_shader_parameter("border_width", 2.0)
-			mat.set_shader_parameter("glow_intensity", 2.5)
-			s.material = mat
+		if "target_glow_active" in current_target_node:
+			print("[CombatManager] Setting target glow on: ", current_target_node.name)
+			current_target_node.target_glow_active = true
+
+func _update_target_visuals():
+	# Update ALL registered entities based on their target_glow_active flag
+	for ent in registered_entities:
+		if not is_instance_valid(ent): continue
+		
+		var s = _get_sprite(ent)
+		if not s: continue
+		
+		if ent.get("target_glow_active") == true:
+			if not s.material or s.material.shader != target_shader:
+				var mat = ShaderMaterial.new()
+				mat.shader = target_shader
+				mat.set_shader_parameter("border_color", Color(1.0, 0.6, 0.0, 1.0))
+				mat.set_shader_parameter("border_width", 8.0)
+				mat.set_shader_parameter("glow_intensity", 5.0)
+				s.material = mat
+		else:
+			if s.material and s.material.shader == target_shader:
+				s.material = null
 
 func _get_sprite(node: Node2D) -> CanvasItem:
 	if "sprite" in node: return node.sprite
@@ -102,11 +122,14 @@ func find_targets_in_hitbox(hitbox: Rect2, exclude: Node2D = null) -> Array:
 	return hits
 
 func _physics_process(delta):
-	# 1. Simulate Soft Bodies (PhysicsManager logic or delegate)
-	# ... (delegated to PhysicsManager)
-
-	# 2. Check Hitbox/Hurtbox Intersections (The Mediator's Job)
+	# 1. Simulate Soft Bodies (PhysicsManager logic)
+	
+	# 2. Check Hitbox/Hurtbox Intersections
 	_process_combat_collisions()
+	
+	# 3. Update Visual Target Glow (Every frame to handle sprite swaps)
+	_update_target_visuals()
+
 
 func _process_combat_collisions():
 	# This replaces the check_collisions logic from show_spectrum.gd
@@ -151,10 +174,17 @@ func _process_combat_collisions():
 # Called by Source (e.g., Player) when they want to interact with a Target
 func request_interaction(source: Node2D, target: Node2D, type: String, data: Dictionary) -> bool:
 	if not is_instance_valid(target) or not is_instance_valid(source):
-		_notify_fail(source, "INVALID_PARTICIPANTS")
 		return false
 
-	# 1. RANGE RE-VALIDATION (Crucial for finishing casts)
+	# flash on hit
+	if type == "damage":
+		var s = _get_sprite(target)
+		if s:
+			var prev_mod = s.modulate
+			s.modulate = Color(15, 15, 15, 1) # Super Bright flash
+			get_tree().create_timer(0.05).timeout.connect(func(): if is_instance_valid(s): s.modulate = prev_mod)
+
+	# 1. RANGE RE-VALIDATION
 	var distance = source.position.distance_to(target.position)
 	var max_range = data.get("range", 9999.0)
 	var proc = data.get("proc", false)
@@ -164,14 +194,13 @@ func request_interaction(source: Node2D, target: Node2D, type: String, data: Dic
 		_notify_fail(source, "OUT_OF_RANGE")
 		return false
 
-	# 2. STATE VALIDATION (Is source stunned? Is target invulnerable?)
+	# 2. STATE VALIDATION
 	if source.has_method("is_incapacitated") and source.is_incapacitated():
 		_notify_fail(source, "SOURCE_CCED")
 		return false
 
 	if proc: 
 		var type_of_proc = data.get("type_of_proc", "generic")
-		print("Proc flag!!: ", type_of_proc)
 		_create_floating_text(target.position, type_of_proc.to_upper() + "!", Color.YELLOW)
 
 	# 3. INTERACTION LOGIC

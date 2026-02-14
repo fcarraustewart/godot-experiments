@@ -112,29 +112,32 @@ func _simulate_character_physics(char_node, delta):
 	# 1. Platform & Floor Detection
 	var current_floor_y = floor_y
 	
-	# Check Platforms
-	if velocity.y >= 0: # Only land if falling or stationary
+	# Only check floor/platforms if we are moving down or stationary at apex
+	if velocity.y >= 0:
+		# Check Platforms first
 		for plat in all_platforms:
-			# Check horizontal range
+			# plat is a Rect2
 			if char_node.global_position.x >= plat.position.x and char_node.global_position.x <= plat.position.x + plat.size.x:
 				var plat_top = plat.position.y
-				# Check if we were ABOVE the platform in the previous frame
-				var prev_feet_y = char_node.global_position.y - velocity.y * delta + feet_offset
-				if prev_feet_y <= plat_top + 10:
-					if char_node.global_position.y + feet_offset >= plat_top - 5:
-						# Land on platform if overlapping the top threshold
-						if char_node.global_position.y + feet_offset < plat_top + 20:
-							current_floor_y = plat_top
-							break
+				# Vertical threshold: must be within 20px of the top to land
+				var feet_y = char_node.global_position.y + feet_offset
+				if feet_y >= plat_top - 5 and feet_y <= plat_top + 20:
+					# Land!
+					current_floor_y = plat_top
+					break
 	
-	var on_floor = char_node.global_position.y + feet_offset >= current_floor_y - 1.5
+	# Determine if we hit the floor
+	# FIXME: this can cause issues if the player is moving up through a platform and then down again in the same frame, but for simplicity we will allow it for now. A more robust solution would involve checking the trajectory of the player within the frame.
+	var on_floor = char_node.global_position.y + feet_offset >= current_floor_y - 2.0
 	
 	if on_floor and velocity.y >= 0:
 		velocity.y = 0
 		char_node.position.y = current_floor_y - feet_offset
+		print("Landed on floor/platform at y =", current_floor_y)
 	else:
-		# 2. Apply Gravity (Only if NOT snapped to floor)
+		# 2. Apply Gravity if strictly in the air or moving upwards
 		velocity += gravity * delta
+		print("Velocity after gravity:", velocity)
 	
 	# 3. Integration (Move the node)
 	char_node.position += velocity * delta

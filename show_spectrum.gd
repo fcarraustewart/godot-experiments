@@ -103,7 +103,7 @@ func setup_moon():
 	moon_light = load("res://light_spirit.gd").new()
 	moon_light.name = "MoonLight"
 	moon_light.color = Color(0.8, 0.9, 1.0, 0.3) # Soft moonlight
-	moon_light.radius = 700.0
+	moon_light.radius = 500.0
 	moon_light.intensity = 0.5
 	# High up in the sky
 	moon_light.position = Vector2(SCREEN_WIDTH * 0.7, -200)
@@ -267,9 +267,9 @@ func setup_ponds():
 		
 		# --- ADD POND GLOW ---
 		var pond_light = load("res://light_spirit.gd").new()
-		pond_light.color = Color(0.2, 0.4, 0.8, 0.2) # Soft blue glow from water
-		pond_light.radius = w * 1.5
-		pond_light.intensity = 0.4
+		pond_light.color = Color(0.3, 0.5, 1.0, 0.4) # Brighter blue glow
+		pond_light.radius = w * 0.40
+		pond_light.intensity = 0.3
 		pond_container.add_child(pond_light)
 		# ---------------------
 		
@@ -357,11 +357,16 @@ func update_light_effects(delta):
 		
 		if factor_light:
 			var dir = (tree.global_position - factor_light.global_position).normalized()
-			rays.points[1] = dir * 250.0 # Ray length
+			rays.points[1] = dir * 350.0 # Longer rays
+			rays.width = 25.0 # Thicker rays
 			
 			var dist = tree.global_position.distance_to(factor_light.global_position)
-			var alpha_target = clamp(1.2 - (dist / (factor_light.radius * 2.5)), 0.0, 0.6)
-			rays.modulate.a = lerp(rays.modulate.a, alpha_target, delta * 3.0)
+			# Make moon rays always somewhat visible if moon is factor
+			var alpha_target = clamp(1.5 - (dist / (factor_light.radius * 3.0)), 0.1, 0.8)
+			if factor_light == moon_light:
+				alpha_target = max(alpha_target, 0.3) # Minimum moon presence
+			
+			rays.modulate.a = lerp(rays.modulate.a, alpha_target, delta * 2.0)
 		else:
 			rays.modulate.a = lerp(rays.modulate.a, 0.0, delta * 2.0)
 
