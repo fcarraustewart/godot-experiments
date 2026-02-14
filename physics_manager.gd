@@ -133,11 +133,15 @@ func _simulate_character_physics(char_node, delta):
 	if on_floor and velocity.y >= 0:
 		velocity.y = 0
 		char_node.position.y = current_floor_y - feet_offset
-		print("Landed on floor/platform at y =", current_floor_y)
+
+		if(Engine.get_process_frames() % 30 == 0):
+			print("Landed on floor/platform at y =", current_floor_y)
 	else:
 		# 2. Apply Gravity if strictly in the air or moving upwards
 		velocity += gravity * delta
-		print("Velocity after gravity:", velocity)
+
+		if(Engine.get_process_frames() % 30 == 0):
+			print("Velocity after gravity:", velocity)
 	
 	# 3. Integration (Move the node)
 	char_node.position += velocity * delta
