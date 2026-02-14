@@ -44,8 +44,16 @@ func try_cast(source_pos: Vector2) -> Vector2:
 func _show_targeting_glitch(pos: Vector2):
 	var marker = Polygon2D.new()
 	marker.polygon = PackedVector2Array([Vector2(-40,0), Vector2(0,-40), Vector2(40,0), Vector2(0,40)])
-	marker.color = Color(1, 0, 0, 0.4)
+	marker.color = Color(1, 1, 1, 0.2) # Neutral base, shader will color it
 	marker.position = pos
+	
+	var mat = ShaderMaterial.new()
+	mat.shader = load("res://target_glow.gdshader")
+	mat.set_shader_parameter("border_color", Color(1.0, 0.2, 0.1, 1.0))
+	mat.set_shader_parameter("border_width", 4.0)
+	mat.set_shader_parameter("glow_intensity", 3.0)
+	marker.material = mat
+	
 	game_node.add_child(marker)
 	
 	# Scale Pulse (Looping)

@@ -7,7 +7,8 @@ extends Node
 var gravity_player = Vector2(0, 800) # Increased for snappy platforming
 var gravity_chains = Vector2(0, 20) # Increased for snappy platforming
 var simulated_objects = []
-var floor_y = 450.0 # Default, will be updated by game_node
+var floor_y = 450.0 # Default base floor
+var all_platforms = [] # Array of Rect2 representing solid blocks
 
 var native_manager = null
 
@@ -105,15 +106,30 @@ func _simulate_character_physics(char_node, delta):
 	# Current State
 	var velocity = char_node.get("velocity") if "velocity" in char_node else Vector2.ZERO
 	
-	# 1. Floor Detection (Check if feet hit floor)
-	var on_floor = char_node.position.y + feet_offset >= floor_y
+	# 1. Platform & Floor Detection
+	var current_floor_y = floor_y
+	var standing_on_platform = false
+	
+	# Check Platforms
+	for plat in all_platforms:
+		# Check horizontal range
+		if char_node.global_position.x >= plat.position.x and char_node.global_position.x <= plat.position.x + plat.size.x:
+			# Check if we are above the platform and falling into it
+			var plat_top = plat.position.y
+			if char_node.global_position.y + feet_offset <= plat_top + 10 and char_node.global_position.y + feet_offset + velocity.y * delta >= plat_top:
+				if velocity.y >= 0: # Only land if falling or grounded
+					current_floor_y = plat_top
+					standing_on_platform = true
+					break
+	
+	var on_floor = char_node.global_position.y + feet_offset >= current_floor_y
 	
 	if on_floor:
 		if velocity.y > 0:
 			velocity.y = 0
-		char_node.position.y = floor_y - feet_offset # Snap feet to top of floor
+		char_node.position.y = current_floor_y - feet_offset
 	else:
-		# 2. Apply Gravity if in the air
+		# 2. Apply Gravity
 		velocity += gravity * delta
 	
 	# 3. Integration (Move the node)

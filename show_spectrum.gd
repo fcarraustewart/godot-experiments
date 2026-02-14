@@ -15,6 +15,8 @@ var animation_timer_enemies = 0.0     # To track time for animation
 var cooldown_up = true
 var current_frame = 0         # Current frame index (0, 1, or 2)
 var current_frame_enemies = 0         # Current frame index (0, 1, or 2)
+var all_trees = [] # Track trees for light rays
+var all_platforms = [] # Visual platform nodes
 # ------------------------
 
 # --- ENEMY VARIABLES ---
@@ -82,10 +84,10 @@ func setup_chill_background():
 	# Distant Mountains (Simple shapes)
 	for i in range(10):
 		var mtn = Polygon2D.new()
-		var w = randf_range(400, 800)
-		var h = randf_range(150, 300)
+		var w = randf_range(600, 1200) # Slightly wider
+		var h = randf_range(300, 600) # Much taller
 		var cx = randf_range(0, sky.size.x)
-		var cy = sky.size.y # Bottom of sky rect
+		var cy = sky.size.y - 400 # Move them UP (Positive Y is down, so subtract to move up)
 		
 		mtn.polygon = PackedVector2Array([
 			Vector2(cx - w/2, cy),
@@ -129,6 +131,7 @@ func setup_trees():
 		tree.modulate = Color(0.6, 0.6, 0.8).darkened((1.4 - s) * 0.5)
 		
 		add_child(tree)
+		all_trees.append(tree)
 
 
 func setup_grass():
@@ -193,7 +196,8 @@ func setup_ponds():
 		
 		# Random Position in the ground area
 		var x_pos = randf_range(-1500, 4500)
-		var y_pos = randf_range(tree_base_y + 256, ground_y-16)
+		# Much higher on the screen (clamped to the ground area visually)
+		var y_pos = randf_range(tree_base_y + 100, ground_y - 20) 
 		pond_container.position = Vector2(x_pos, y_pos)
 		
 		# The Water Surface
@@ -237,6 +241,88 @@ func setup_ponds():
 		
 		add_child(pond_container)
 		all_ponds.append(pond_container)
+
+func setup_platforms():
+	print("Spawning jump platforms...")
+	var ground_y = SCREEN_HEIGHT - 50
+	for i in range(8):
+		var plat = ColorRect.new()
+		var w = randf_range(100, 200)
+		var h = 32
+		plat.size = Vector2(w, h)
+		# Spread them out in Y for puzzles
+		var x_pos = randf_range(-500, 3500)
+		var y_pos = ground_y - randf_range(120, 350)
+		plat.position = Vector2(x_pos, y_pos)
+		plat.color = Color(0.15, 0.1, 0.05) # Woody brown
+		plat.z_index = -2
+		add_child(plat)
+		all_platforms.append(plat)
+		
+		# Register in PhysicsManager
+		if PhysicsManager:
+			PhysicsManager.all_platforms.append(Rect2(plat.position, plat.size))
+
+func setup_tree_rays():
+	for tree in all_trees:
+		var rays = Line2D.new()
+		rays.name = "LightRays"
+		rays.width = 10.0
+		rays.default_color = Color(1.0, 1.0, 0.6, 0.0) # Transparent yellow
+		# Setup multiple points for a fan effect or just one main ray
+		rays.add_point(Vector2.ZERO)
+		rays.add_point(Vector2(0, -200))
+		tree.add_child(rays)
+		
+		# Give them a soft gradient look
+		var gradient = Gradient.new()
+		gradient.colors = [Color(1, 1, 0.8, 0.3), Color(1, 1, 0.8, 0.0)]
+		rays.gradient = gradient
+
+func update_light_effects(delta):
+	# 1. Update Tree Rays (Follow Light Sources)
+	var lights = get_tree().get_nodes_in_group("light_spirits") # Handle group if we add them
+	# Actually, let's just use the player_light for now or search children
+	var all_lights = []
+	for child in get_children():
+		if child.name.contains("Light") or child is LightSpirit:
+			all_lights.append(child)
+	
+	for tree in all_trees:
+		var rays = tree.get_node_or_null("LightRays")
+		if not rays: continue
+		
+		var nearest_light = null
+		var min_dist = 2000.0
+		for l in all_lights:
+			var d = tree.global_position.distance_to(l.global_position)
+			if d < min_dist:
+				min_dist = d
+				nearest_light = l
+		
+		if nearest_light and min_dist < nearest_light.radius * 2.0:
+			var dir = (tree.global_position - nearest_light.global_position).normalized()
+			rays.points[1] = dir * 200.0
+			# Rays should point AWAY from light (casting through leaves)
+			# Or TOWARDS for highlights? User said "follow the light sources".
+			# Usually God rays point AWAY.
+			rays.modulate.a = lerp(rays.modulate.a, clamp(1.0 - (min_dist / (nearest_light.radius * 2.0)), 0.0, 1.0), delta * 5.0)
+		else:
+			rays.modulate.a = lerp(rays.modulate.a, 0.0, delta * 2.0)
+
+	# 2. Sprite Illumination (Approaching sprites)
+	var entities = [player] + enemies
+	for ent in entities:
+		if not is_instance_valid(ent): continue
+		var base_mod = Color(1,1,1,1)
+		var boost = 0.0
+		for l in all_lights:
+			var dist = ent.global_position.distance_to(l.global_position)
+			if dist < l.radius:
+				boost += (1.0 - (dist / l.radius)) * l.intensity * 0.5
+		
+		# Apply boost to modulation (making them glowy when near light)
+		ent.modulate = Color(1.0 + boost, 1.0 + boost, 1.0 + boost * 0.5, 1.0)
 
 func setup_reflections():
 	# We'll create reflections for the player and enemies
@@ -321,6 +407,9 @@ func update_reflections():
 			rs.scale = active_sprite.scale
 			rs.modulate = Color(0.2, 0.4, 0.8, 0.6) # Darker, more blue
 			rs.offset = active_sprite.offset
+			
+			# OPTIONAL: Apply pond-light shimmer if nearest light is close
+			# (Skipping for now to keep it clean)
 		else:
 			reflection.visible = false
 
@@ -329,6 +418,8 @@ func _ready():
 	setup_trees()
 	setup_grass()
 	setup_ponds()
+	setup_platforms()
+	setup_tree_rays()
 	
 	print("[ShowSpectrum] _ready started.")
 	if CombatManager:
@@ -542,6 +633,7 @@ func create_spectrum_sprite() -> Sprite2D:
 
 func _process(delta):
 	update_reflections()
+	update_light_effects(delta)
 
 
 	# --- LIGHTNING LOGIC (Background) ---
