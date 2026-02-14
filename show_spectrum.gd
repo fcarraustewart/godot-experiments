@@ -332,6 +332,10 @@ func update_light_effects(delta):
 	var all_lights = []
 	if player_light: all_lights.append(player_light)
 	if moon_light: all_lights.append(moon_light)
+	if CombatManager:
+		for enemy in enemies:
+			if is_instance_valid(enemy) and "light" in enemy:
+				all_lights.append(enemy.light)
 	
 	for child in get_children():
 		if child is LightSpirit and child != player_light and child != moon_light:
@@ -374,19 +378,24 @@ func update_light_effects(delta):
 	var entities = [player] + enemies
 	for ent in entities:
 		if not is_instance_valid(ent): continue
-		var boost = 0.0
+		var boost : float = 0.0
 		for l in all_lights:
-			var dist = ent.global_position.distance_to(l.global_position)
+			var dist: float = ent.global_position.distance_to(l.global_position)
 			if dist < l.radius:
-				boost += (1.0 - (dist / l.radius)) * l.intensity * 0.7
+				boost += (1.0 - (dist / l.radius)) * l.intensity * 10
+				if(Engine.get_process_frames() % 30 == 0):
+					print("Entity ", ent.name, " is within light radius of ", l.name, " with distance ", dist, " and intensity ", l.intensity, " resulting in boost ", boost)
 		
 		var lit_color = Color(1.0 + boost, 1.0 + boost, 1.0 + boost * 0.5, 1.0)
 		
 		# If entity supports external lighting, use that (preferred for Player)
 		if "external_lighting_modulate" in ent:
+			if(Engine.get_process_frames() % 30 == 0): 
+				print("Applying lighting to ", ent.name, " with boost ", boost)
 			ent.external_lighting_modulate = lit_color
 		else:
 			# Apply directly to sprite
+			print("Applying lighting to sprite of entity ", ent.name, " with boost ", boost)
 			if ent.has_method("get_active_sprite"):
 				var s = ent.call("get_active_sprite")
 				if s: s.modulate = lit_color
@@ -670,9 +679,9 @@ func _ready():
 	# --- SETUP PLAYER LIGHT BEACON ---
 	player_light = load("res://light_spirit.gd").new()
 	player_light.name = "PlayerLightBeacon"
-	player_light.color = Color(1.0, 0.6, 0.2, 0.5) # Cozy fire camp spirit
-	player_light.radius = 32.0
-	player_light.intensity = 0.6
+	player_light.color = Color(1.0, 0.6, 0.2, 0.2) # Cozy fire camp spirit
+	player_light.radius = 128.0
+	player_light.intensity = 10.6
 	add_child(player_light)
 	
 	setup_reflections()
