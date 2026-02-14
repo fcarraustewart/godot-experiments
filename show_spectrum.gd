@@ -275,10 +275,10 @@ func update_reflections():
 				var global_bounds = Rect2(pond.global_position + local_bounds.position, local_bounds.size)
 				
 				# Check if character's horizontal center is within pond width
-				# and their feet are "relatively" near the pond level
+				# and their feet are actually near the pond level (tighter Y check)
 				if abs(entity.global_position.x - pond.global_position.x) < global_bounds.size.x / 2.0:
-					# We use a loose Y check because jumping shouldn't hide reflection unless too high
-					if abs(entity.global_position.y - pond.global_position.y) < 500.0:
+					var y_dist = abs(entity.global_position.y - pond.global_position.y)
+					if y_dist < 200.0: # Only show reflection if reasonably near the pond
 						current_pond = pond
 						break
 		

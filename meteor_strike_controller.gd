@@ -98,7 +98,7 @@ func _fire_meteor():
 	# --- ADD METEOR GLOW ---
 	var light = load("res://light_spirit.gd").new()
 	light.color = Color(1.5, 0.6, 0.2, 0.8) # Hot Orange Plasma
-	light.radius = 350.0
+	light.radius = 600.0
 	light.intensity = 1.0
 	head_visual.add_child(light) # Follows the satellite core
 	# -----------------------
@@ -274,11 +274,11 @@ func _create_beefy_explosion(pos: Vector2):
 	# Layer 4: Magical Light Spirit Flash
 	var impact_light = load("res://light_spirit.gd").new()
 	impact_light.color = Color(1.0, 0.4, 0.1, 1.0) # Bright Fire Orange
-	impact_light.radius = 128.0
+	impact_light.radius = 800.0
 	impact_light.intensity = 2.5
 	impact_light.position = pos
 	game_node.add_child(impact_light)
-	get_tree().create_timer(0.5).timeout.connect(impact_light.queue_free)
+	get_tree().create_timer(2.5).timeout.connect(impact_light.queue_free)
 
 func _cleanup():
 	if meteor_id != "":

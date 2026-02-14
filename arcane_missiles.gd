@@ -46,6 +46,9 @@ func cast_missiles(target: Node2D):
 	
 	game_node.add_child(swarm)
 	
+	# Spawn at caster position
+	swarm.global_position = host.global_position + Vector2(0, -30)
+	
 	# Force spawn
 	swarm.spawn_flock()
 	
