@@ -16,6 +16,7 @@ var target_glow_active: bool = false
 
 # --- CONFIG ---
 const BODY_HURTBOX_SIZE = Vector2(64, 64)
+var feet_offset: float = 32.0 # Default center-to-feet distance
 
 func _ready():
 	global_position = position
@@ -39,6 +40,9 @@ func _unregister_from_managers():
 func apply_physics():
 	# Marker for PhysicsManager
 	pass
+
+func get_feet_offset() -> float:
+	return feet_offset
 
 func is_enemy() -> bool:
 	return false

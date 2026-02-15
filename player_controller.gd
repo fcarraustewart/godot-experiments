@@ -202,6 +202,8 @@ func _on_slowed(duration: int, slow_amount: float):
 func _ready():
 	super._ready()
 	add_to_group("Player")
+	# 64px tall centered sprite
+	feet_offset = 32.0
 	# 1. Idle Sprite
 	sprite = Sprite2D.new()
 	sprite.texture = load("res://art/Inanimate-patas.png")

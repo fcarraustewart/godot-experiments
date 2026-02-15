@@ -104,7 +104,9 @@ func _simulate_character_physics(char_node, delta):
 		return
 		
 	var gravity = gravity_player
-	var feet_offset = 70.0 # Standard half-height of the player hurtbox
+	var feet_offset = 32.0 # Fallback
+	if char_node.has_method("get_feet_offset"):
+		feet_offset = char_node.get_feet_offset()
 	
 	# Current State
 	var velocity = char_node.get("velocity") if "velocity" in char_node else Vector2.ZERO

@@ -12,6 +12,7 @@ func _ready():
 	super._ready()
 
 	add_to_group("Enemy")
+	feet_offset = 96.0 # Scaled to 192px height
 	
 	# Create sprite if not already present
 	sprite = Sprite2D.new()

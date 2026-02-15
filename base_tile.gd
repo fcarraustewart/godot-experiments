@@ -53,7 +53,11 @@ func _process(delta):
 		# Standard detection: center X, top Y
 		for obj in PhysicsManager.simulated_objects:
 			if obj is Node2D:
-				var feet_pos = obj.global_position + Vector2(0, 70) 
+				var f_offset = 32.0
+				if obj.has_method("get_feet_offset"):
+					f_offset = obj.get_feet_offset()
+					
+				var feet_pos = obj.global_position + Vector2(0, f_offset) 
 				if abs(feet_pos.x - global_position.x) < 16 and abs(feet_pos.y - (global_position.y - 16)) < 8:
 					currently_stepped_on = true
 					break
