@@ -328,25 +328,18 @@ func setup_platforms():
 	if PhysicsManager:
 		PhysicsManager.clear_platforms()
 	
-	print("Spawning jump platforms...")
+	print("Spawning tiled jump platforms...")
 	var ground_y = SCREEN_HEIGHT - 50
 	for i in range(8):
-		var plat = ColorRect.new()
-		var w = randf_range(100, 200)
-		var h = 32
-		plat.size = Vector2(w, h)
-		# Spread them out in Y for puzzles
+		var w_target = randf_range(160, 320) # Multiples of 32 approx
 		var x_pos = randf_range(-500, 3500)
 		var y_pos = ground_y - randf_range(120, 350)
-		plat.position = Vector2(x_pos, y_pos)
-		plat.color = Color(0.15, 0.1, 0.05) # Woody brown
-		plat.z_index = -2
-		add_child(plat)
-		all_platforms.append(plat)
+		
+		var area_size = _create_tiled_area(Vector2(x_pos, y_pos), w_target, -2)
 		
 		# Register in PhysicsManager
 		if PhysicsManager:
-			PhysicsManager.all_platforms.append(Rect2(plat.position, plat.size))
+			PhysicsManager.all_platforms.append(Rect2(Vector2(x_pos, y_pos), area_size))
 
 func setup_tree_rays():
 	for tree in all_trees:
@@ -674,13 +667,13 @@ func _ready():
 	add_child(bg_rect)
 	# --------------------------------------
 	
-	# --- SETUP FLOOR ---
-	var floor_rect = ColorRect.new()
-	floor_rect.size = Vector2(SCREEN_WIDTH*16, 25)
-	floor_rect.position = Vector2(-SCREEN_WIDTH/2, SCREEN_HEIGHT+64)
-	floor_rect.color = Color(0.1, 0.1, 0.15, 0.2) # Dark blueish gray
-	floor_rect.name = "Floor"
-	add_child(floor_rect)
+	# --- SETUP TILE-BASED FLOOR ---
+	var floor_pos = Vector2(-SCREEN_WIDTH * 4, SCREEN_HEIGHT + 64)
+	var floor_width = SCREEN_WIDTH * 16
+	var actual_floor_size = _create_tiled_area(floor_pos, floor_width, 0)
+	
+	if PhysicsManager:
+		PhysicsManager.floor_y = floor_pos.y
 	# -------------------
 	
 	# --- SETUP PLAYER CONTROLLER ---
@@ -1143,5 +1136,34 @@ func _update_leaves(delta):
 		# Fade out near end of life
 		if l.life < 1.0:
 			l.node.modulate.a = l.life
+func _create_tiled_area(pos: Vector2, width: float, z: int) -> Vector2:
+	# Tiles are 32x32. Calculate how many we need.
+	var num_tiles = max(2, int(ceil(width / 32.0)))
+	var total_width = num_tiles * 32
+	
+	var tile_script = load("res://base_tile.gd")
+	
+	for i in range(num_tiles):
+		var tile = tile_script.new()
+		tile.z_index = z
+		# Calculate tile position (Tiles are centered, so offset by 16)
+		tile.global_position = pos + Vector2(i * 32 + 16, 16)
+		
+		if i == 0:
+			tile.type = tile.TileType.SIDE_END
+			tile.is_flipped = false
+		elif i == num_tiles - 1:
+			tile.type = tile.TileType.SIDE_END
+			tile.is_flipped = true
+		else:
+			# Randomly pick between Default and Grass
+			if randf() < 0.2:
+				tile.type = tile.TileType.WITH_GRASS
+			else:
+				tile.type = tile.TileType.DEFAULT
+		
+		add_child(tile)
+	
+	return Vector2(total_width, 32)
 
 # ----------------------------
