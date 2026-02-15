@@ -331,9 +331,13 @@ func setup_platforms():
 	print("Spawning tiled jump platforms...")
 	var ground_y = SCREEN_HEIGHT - 50
 	for i in range(8):
-		var w_target = randf_range(160, 320) # Multiples of 32 approx
-		var x_pos = randf_range(-500, 3500)
-		var y_pos = ground_y - randf_range(120, 350)
+		# Strict tile count for alignment
+		var num_tiles = randi_range(6, 12)
+		var w_target = num_tiles * 32
+		
+		# Snap position to 32px grid for perfect alignment
+		var x_pos = floor(randf_range(-500, 3500) / 32.0) * 32.0
+		var y_pos = floor((ground_y - randf_range(120, 350)) / 32.0) * 32.0
 		
 		var area_size = _create_tiled_area(Vector2(x_pos, y_pos), w_target, -2)
 		
@@ -668,7 +672,8 @@ func _ready():
 	# --------------------------------------
 	
 	# --- SETUP TILE-BASED FLOOR ---
-	var floor_pos = Vector2(-SCREEN_WIDTH * 4, SCREEN_HEIGHT + 64)
+	# Snap floor to 32px as well
+	var floor_pos = Vector2(floor(-SCREEN_WIDTH * 4 / 32.0) * 32.0, SCREEN_HEIGHT + 64)
 	var floor_width = SCREEN_WIDTH * 16
 	var actual_floor_size = _create_tiled_area(floor_pos, floor_width, 0)
 	

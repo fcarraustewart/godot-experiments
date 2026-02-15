@@ -24,19 +24,24 @@ func _ready():
 		TileType.DEFAULT:
 			texture = TEX_DEFAULT_STEPPED
 			hframes = 2
+			vframes = 1
 			frame = 0 # SteppedOn frame 1 as default state
 			frame_count = 2
 		TileType.SIDE_END:
 			texture = TEX_SIDE_STEPPED
 			hframes = 2
+			vframes = 1
 			frame = 0 # SteppedOn frame 1 as default state
 			frame_count = 2
 			flip_h = is_flipped
 		TileType.WITH_GRASS:
 			texture = TEX_GRASS_IDLE
+			# TEX_GRASS_IDLE has 5 frames, TEX_GRASS_STEPPED has 7
 			hframes = 5
+			vframes = 1
 			frame = 0
 			frame_count = 5
+	_align_to_base()
 
 func _process(delta):
 	# 1. Detection: Check if any entity is on top of this tile
@@ -44,17 +49,12 @@ func _process(delta):
 	var currently_stepped_on = false
 	
 	if PhysicsManager:
-		# Tile bounds: 32x32 centered
-		var tile_rect = Rect2(global_position - Vector2(16, 16), Vector2(32, 32))
 		# Check slightly above the tile for feet
-		var detection_rect = Rect2(global_position - Vector2(16, 20), Vector2(32, 10))
-		
+		# Standard detection: center X, top Y
 		for obj in PhysicsManager.simulated_objects:
 			if obj is Node2D:
-				# Use a simple point check for feet
-				# feet_offset in PhysicsManager is 70, but here we just check if position.y is near tile top
 				var feet_pos = obj.global_position + Vector2(0, 70) 
-				if abs(feet_pos.x - global_position.x) < 16 and abs(feet_pos.y - (global_position.y - 16)) < 5:
+				if abs(feet_pos.x - global_position.x) < 16 and abs(feet_pos.y - (global_position.y - 16)) < 8:
 					currently_stepped_on = true
 					break
 	
@@ -80,5 +80,22 @@ func _update_visuals():
 		TileType.SIDE_END:
 			frame = 1 if state == TileState.STEPPED_ON else 0
 		TileType.WITH_GRASS:
-			texture = TEX_GRASS_STEPPED if state == TileState.STEPPED_ON else TEX_GRASS_IDLE
-			# Reset timer if needed? User says "run animations 7 frames", usually implies looped
+			if state == TileState.STEPPED_ON:
+				texture = TEX_GRASS_STEPPED
+				hframes = 7
+				frame_count = 7
+			else:
+				texture = TEX_GRASS_IDLE
+				hframes = 5
+				frame_count = 5
+			_align_to_base()
+			# Reset animation timer on state switch to avoid glitches
+			anim_timer = 0.0
+
+func _align_to_base():
+	# If the texture is taller than 32px, we offset it upwards so the bottom 32px
+	# matches the tile grid. 
+	# center of sprite is 0,0. Bottom is H/2. We want bottom at +16.
+	if texture:
+		var frame_h = texture.get_height() / vframes
+		offset.y = 16 - (frame_h / 2.0)
