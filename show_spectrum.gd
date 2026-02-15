@@ -479,30 +479,25 @@ func update_reflections():
 		reflection.visible = false # Default
 		
 		var best_pond = null
-		var min_dist = 600.0
+		var min_y_dist = 1000.0 # Wide vertical range
+		
 		for pond in all_ponds:
-			var pond_water = pond.get_child(0) # Get the Polygon2D or similar
+			var pond_water = pond.get_node_or_null("PondWater")
 			if pond_water and pond_water is Polygon2D:
-				# Simple bounding box check for performance
-				# pond.position is the center of the pond (based on setup_ponds)
-				# w and h were random, let's look at sizing in setup_ponds
-				# We can calculate the pond's rect from its polygon points
+				# Calculate pond surface and bounds
 				var local_bounds = Rect2(Vector2.ZERO, Vector2.ZERO)
 				for p in pond_water.polygon:
 					local_bounds = local_bounds.expand(p)
 				
-				var global_bounds = Rect2(pond.global_position + local_bounds.position, local_bounds.size)
-
-				# Check if character's horizontal center is within pond width
-				# and their feet are actually near the pond level (tighter Y check)
-				if abs(entity.global_position.x - pond.global_position.x) < global_bounds.size.x / 2.0:
-					var y_dist = abs(entity.global_position.y - pond.global_position.y)
-					if y_dist < 400.0: # Only show reflection if reasonably near the pond			
-						var d = abs(entity.global_position.x - pond.global_position.x)
-						if d < min_dist:
-							min_dist = d
-							best_pond = pond
-						break
+				var pond_width = local_bounds.size.x
+				var x_dist = abs(entity.global_position.x - pond.global_position.x)
+				var y_dist = abs(entity.global_position.y - pond.global_position.y)
+				
+				# Relaxed horizontal check: allow reflections if reasonably close to the pond's x-range
+				if x_dist < (pond_width / 2.0) + 200.0:
+					if y_dist < min_y_dist:
+						min_y_dist = y_dist
+						best_pond = pond
 
 		
 		if best_pond:
@@ -537,10 +532,17 @@ func _update_node_reflection(entity: Node2D, reflection: Node2D, pond: Node2D):
 			rs.name = "Sprite"
 			reflection.add_child(rs)
 		
-		var pond_y = pond.global_position.y
-		# Local positioning is relative to the pond container
+		# Mirroring math relative to pond's TOP surface
+		var pond_water = pond.get_node_or_null("PondWater")
+		var pond_surface_y = pond.global_position.y
+		if pond_water and pond_water is Polygon2D:
+			var local_min_y = 0.0
+			for p in pond_water.polygon:
+				if p.y < local_min_y: local_min_y = p.y
+			pond_surface_y += local_min_y # adjust to top edge
+			
 		reflection.global_position.x = entity.global_position.x
-		reflection.global_position.y = pond_y + (pond_y - entity.global_position.y)
+		reflection.global_position.y = pond_surface_y + (pond_surface_y - entity.global_position.y)
 		
 		rs.texture = active_sprite.texture
 		rs.hframes = active_sprite.hframes
@@ -551,7 +553,7 @@ func _update_node_reflection(entity: Node2D, reflection: Node2D, pond: Node2D):
 		rs.flip_h = active_sprite.flip_h
 		rs.flip_v = true
 		rs.scale = active_sprite.scale
-		rs.modulate = Color(0.2, 0.4, 0.8, 0.6) # Darker, more blue
+		rs.modulate = Color(0.1, 0.4, 0.9, 0.5)
 		rs.offset = active_sprite.offset
 
 		# ADD MOON REFLECTION IN POND
