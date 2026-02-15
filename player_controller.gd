@@ -582,9 +582,11 @@ func _on_input_action(action_name: String, data: Dictionary):
 			is_mouse_steering = data.get("active", false)
 		
 		"jump":
-			if is_on_floor_physics:
+			# Strict jump validation: must be on floor and not currently jumping/dashing
+			if is_on_floor_physics and current_state != State.JUMPING and current_state != State.DASHING:
 				velocity.y = -500.0 # Jump Impulse
-				print("Jumping!")
+				is_on_floor_physics = false 
+				print("Jump Input Accepted. Velocity: ", velocity.y)
 				emit_signal("jumped")
 		
 		"dash":

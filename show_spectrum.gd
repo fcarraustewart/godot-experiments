@@ -22,6 +22,19 @@ var all_platforms = [] # Visual platform nodes
 # --- ENEMY VARIABLES ---
 var enemies = []
 const MAX_ENEMIES = 3
+
+# --- WIND & ENVIRONMENT ---
+var wind_manager: Node
+var all_leaves = []
+var leaf_timer = 0.0
+const LEAF_TEX = "res://art/environment/leaf/leaf1.png"
+
+# --- TWEAK PARAMETERS ---
+var wind_base_strength = 0.5
+var wind_frequency = 0.8
+var leaf_spawn_chance = 0.6 # Higher = more leaves
+var leaf_gravity = 40.0
+var leaf_wind_influence = 80.0 # How much leaves blow sideways
 # -----------------------
 
 const VU_COUNT = 16
@@ -103,8 +116,8 @@ func setup_moon():
 	moon_light = load("res://light_spirit.gd").new()
 	moon_light.name = "MoonLight"
 	moon_light.color = Color(0.8, 0.9, 1.0, 0.3) # Soft moonlight
-	moon_light.radius = 500.0
-	moon_light.intensity = 0.5
+	moon_light.radius = 800.0
+	moon_light.intensity = 0.7
 	# High up in the sky
 	moon_light.position = Vector2(SCREEN_WIDTH * 0.7, -200)
 	add_child(moon_light)
@@ -125,39 +138,53 @@ func setup_moon():
 
 
 func setup_trees():
-	var tree_tex = load("res://art/environment/trees/Tree1.png")
+	var tree_tex = load("res://art/environment/trees/Tree1-blue.png")
 	if not tree_tex:
-		print("ERROR: Tree1.png not found at expected path!")
+		print("ERROR: Tree1-blue.png not found at expected path!")
 		return
 		
 	print("Spawning trees...")
 	for i in range(25):
 		var tree = Sprite2D.new()
+		var tree2 = Sprite2D.new()
 		tree.texture = tree_tex
+		tree2.texture = tree_tex
 		
 		# Random Position
 		var x_pos = randf_range(-1000, 4000)
+		var x_pos2 = randf_range(-1000, 4000)
 		var s = randf_range(0.6, 1.4)
+		var s2 = randf_range(0.6, 1.4)
 		tree.scale = Vector2(s, s)
+		tree2.scale = Vector2(s2, s2)
 		
 		# Flip randomly
 		if randf() > 0.5:
 			tree.scale.x *= -1
+		if randf() > 0.5:
+			tree2.scale.x *= -1
 			
 		# Y Position: Ground level is roughly SCREEN_HEIGHT - 50
 		# Adjust for anchor (center)
 		var ground_y = SCREEN_HEIGHT - 50
+		var ground_y2 = SCREEN_HEIGHT*2 - 50
+
 		# Sink them a bit into the ground for variation
 		var sink = randf_range(10, 40)
 		tree.position = Vector2(x_pos, ground_y - (tree_tex.get_height() * s * 0.5) + sink)
-		
+		tree2.position = Vector2(x_pos2, ground_y2 - (tree_tex.get_height() * s2 * 0.5) + sink) 
+
 		# Depth sorting visual hack:
 		# Smaller/further back trees are darker and behind larger ones
 		tree.z_index = -10 + int(s * 5) # -10 to -3 range approx
+		tree2.z_index = -10 + int(s * 5) # -10 to -3 range approx
 		tree.modulate = Color(0.6, 0.6, 0.8).darkened((1.4 - s) * 0.5)
+		tree2.modulate = Color(0.6, 0.6, 0.8).darkened((1.4 - s) * 0.5)
 		
 		add_child(tree)
+		add_child(tree2)
 		all_trees.append(tree)
+		all_trees.append(tree2)
 
 
 func setup_grass():
@@ -246,11 +273,32 @@ func setup_ponds():
 		
 		# Water should be behind characters
 		water.z_index = -5
+		water.name = "PondWater"
+		# ENABLE CLIPPING AND DRAWING
+		water.clip_children = CanvasItem.CLIP_CHILDREN_AND_DRAW
 		pond_container.add_child(water)
 		
-		# Rain Splash Particles (CPUParticles2D for simplicity/reliability)
+		# Reflection container strictly for clipped content
+		var re_cont = Node2D.new()
+		re_cont.name = "Reflections"
+		water.add_child(re_cont)
+		
+		# Static Moon reflection in the pond
+		if moon_light:
+			var moon_ref = Sprite2D.new()
+			moon_ref.name = "MoonRef"
+			moon_ref.texture = load("res://art/moon_glow.png") # Or similar
+			if not moon_ref.texture: 
+				# Fallback: create a circle
+				pass 
+			moon_ref.scale = Vector2(0.4, 0.2)
+			moon_ref.modulate = Color(1, 1, 1, 0.15)
+			# Distant parallax: move it slightly towards moon
+			var moon_dir = (moon_light.global_position - pond_container.global_position).normalized()
+			moon_ref.position = moon_dir * 15.0
+			re_cont.add_child(moon_ref)
 		var splashes = CPUParticles2D.new()
-		splashes.amount = 15
+		splashes.amount = 8
 		splashes.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
 		splashes.emission_rect_extents = Vector2(w/2, h/2)
 		splashes.direction = Vector2(0, -1)
@@ -304,7 +352,7 @@ func setup_tree_rays():
 	for tree in all_trees:
 		var rays = Line2D.new()
 		rays.name = "LightRays"
-		rays.width = 10.0
+		rays.width = 0.80
 		rays.default_color = Color(1.0, 1.0, 0.6, 0.0) # Transparent yellow
 		# Setup multiple points for a fan effect or just one main ray
 		rays.add_point(Vector2.ZERO)
@@ -381,6 +429,9 @@ func update_light_effects(delta):
 		var boost : float = 0.0
 		for l in all_lights:
 			var dist: float = ent.global_position.distance_to(l.global_position)
+			# FIXME: player light should not light up player.
+			if(l in ent.get_children()):
+				continue
 			if dist < l.radius:
 				boost += (1.0 - (dist / l.radius)) * l.intensity * 10
 				if(Engine.get_process_frames() % 30 == 0):
@@ -390,7 +441,7 @@ func update_light_effects(delta):
 		
 		# If entity supports external lighting, use that (preferred for Player)
 		if "external_lighting_modulate" in ent:
-			if(Engine.get_process_frames() % 30 == 0): 
+			if(Engine.get_process_frames() % 60 == 0): 
 				print("Applying lighting to ", ent.name, " with boost ", boost)
 			ent.external_lighting_modulate = lit_color
 		else:
@@ -412,19 +463,23 @@ func _create_reflection(entity: Node2D):
 	if not entity: return
 	var reflection = Node2D.new()
 	reflection.name = entity.name + "_Reflection"
-	reflection.z_index = -4 # Slightly in front of water surface
-	reflection.modulate = Color(1, 1, 1, 0.7)
-	
-	add_child(reflection)
+	# No specific parent here, update_reflections will move it to the nearest pond
 	reflection_nodes[entity] = reflection
 
+# Track dynamic skill reflections to avoid duplicates
+
+var skill_reflections = {} # Map of skill_instance -> reflection_node
+
 func update_reflections():
+	# 1. Update Entities (Player, Enemies)
 	for entity in reflection_nodes.keys():
 		var reflection = reflection_nodes[entity]
 		if not is_instance_valid(entity) or not is_instance_valid(reflection): continue
 		
-		# 1. Determine if entity is over a pond
-		var current_pond = null
+		reflection.visible = false # Default
+		
+		var best_pond = null
+		var min_dist = 600.0
 		for pond in all_ponds:
 			var pond_water = pond.get_child(0) # Get the Polygon2D or similar
 			if pond_water and pond_water is Polygon2D:
@@ -437,73 +492,146 @@ func update_reflections():
 					local_bounds = local_bounds.expand(p)
 				
 				var global_bounds = Rect2(pond.global_position + local_bounds.position, local_bounds.size)
-				
+
 				# Check if character's horizontal center is within pond width
 				# and their feet are actually near the pond level (tighter Y check)
 				if abs(entity.global_position.x - pond.global_position.x) < global_bounds.size.x / 2.0:
 					var y_dist = abs(entity.global_position.y - pond.global_position.y)
-					if y_dist < 200.0: # Only show reflection if reasonably near the pond
-						current_pond = pond
+					if y_dist < 400.0: # Only show reflection if reasonably near the pond			
+						var d = abs(entity.global_position.x - pond.global_position.x)
+						if d < min_dist:
+							min_dist = d
+							best_pond = pond
 						break
+
 		
-		var active_sprite = null
-		if current_pond:
-			if entity is PlayerController:
-				active_sprite = entity.get_active_sprite()
-			elif entity.is_in_group("Enemy") or entity.is_in_group("enemies"):
-				active_sprite = entity.get("sprite")
-			elif entity.has_node("Sprite2D"):
-				active_sprite = entity.get_node("Sprite2D")
+		if best_pond:
+			var re_cont = best_pond.get_node_or_null("PondWater/Reflections")
+			if re_cont:
+				if reflection.get_parent() != re_cont:
+					if reflection.get_parent(): reflection.get_parent().remove_child(reflection)
+					re_cont.add_child(reflection)
+				_update_node_reflection(entity, reflection, best_pond)
+
+	# 2. Update Dynamic Skills
+	for child in get_children():
+		if child.name.contains("Reflection") or child.name.contains("Ref_"): continue
+		if child is Line2D or child is Polygon2D or (child is Sprite2D and child.name.contains("Missile")):
+			for pond in all_ponds:
+				var dist = abs(child.global_position.x - pond.global_position.x)
+				if dist < 400:
+					_reflect_skill_in_pond(child, pond)
+
+func _update_node_reflection(entity: Node2D, reflection: Node2D, pond: Node2D):
+	var active_sprite = null
+	if entity.has_method("get_active_sprite"):
+		active_sprite = entity.call("get_active_sprite")
+	elif "sprite" in entity:
+		active_sprite = entity.get("sprite")
+	
+	if active_sprite and active_sprite is Sprite2D and active_sprite.visible:
+		reflection.visible = true
+		var rs = reflection.get_node_or_null("Sprite")
+		if not rs:
+			rs = Sprite2D.new()
+			rs.name = "Sprite"
+			reflection.add_child(rs)
 		
-		if active_sprite and active_sprite is Sprite2D and active_sprite.visible:
-			reflection.visible = true
-			var rs = reflection.get_node_or_null("Sprite")
-			if not rs:
-				rs = Sprite2D.new()
-				rs.name = "Sprite"
-				reflection.add_child(rs)
+		var pond_y = pond.global_position.y
+		# Local positioning is relative to the pond container
+		reflection.global_position.x = entity.global_position.x
+		reflection.global_position.y = pond_y + (pond_y - entity.global_position.y)
+		
+		rs.texture = active_sprite.texture
+		rs.hframes = active_sprite.hframes
+		rs.vframes = active_sprite.vframes
+		rs.frame = active_sprite.frame
+		rs.region_enabled = active_sprite.region_enabled
+		rs.region_rect = active_sprite.region_rect
+		rs.flip_h = active_sprite.flip_h
+		rs.flip_v = true
+		rs.scale = active_sprite.scale
+		rs.modulate = Color(0.2, 0.4, 0.8, 0.6) # Darker, more blue
+		rs.offset = active_sprite.offset
+
+		# ADD MOON REFLECTION IN POND
+		var moon_ref = reflection.get_node_or_null("MoonRef")
+		if not moon_ref and moon_light:
+			moon_ref = Sprite2D.new()
+			moon_ref.name = "MoonRef"
+			moon_ref.texture = moon_light.get_child(0).texture
+			reflection.add_child(moon_ref)
+		
+		if moon_ref and moon_light:
+			# Simple parallax reflection: offset based on pond pos vs moon pos
+			var rel_pos = (moon_light.global_position - pond.global_position)
+			moon_ref.position = -rel_pos.normalized() * 30.0
+			moon_ref.modulate = Color(1, 1, 1, 0.2)
+			moon_ref.scale = Vector2(0.4, 0.2) # Flattened on water
+		
+		# We don't hide the whole reflection if moon is missing
+		pass
+
 			
-			# --- INVERSE JUMP MOVEMENT ---
-			# We reflect across the "Reflection Line" which is the pond's Y level
-			var reflection_line_y = current_pond.global_position.y
-			# Character center is entity.global_position.y
-			# Mirroring formula: reflection_y = line_y + (line_y - character_y)
-			# But we need to account for the sprite height to keep it at the feet.
-			# If character is standing on ground, line_y - character_y = 64 (half height)
-			# reflection_y should be line_y + 64.
-			reflection.global_position.x = entity.global_position.x
-			reflection.global_position.y = reflection_line_y + (reflection_line_y - entity.global_position.y)
-			
-			rs.texture = active_sprite.texture
-			rs.hframes = active_sprite.hframes
-			rs.vframes = active_sprite.vframes
-			rs.frame = active_sprite.frame
-			rs.region_enabled = active_sprite.region_enabled
-			rs.region_rect = active_sprite.region_rect
-			rs.flip_h = active_sprite.flip_h
-			rs.flip_v = true
-			rs.scale = active_sprite.scale
-			rs.modulate = Color(0.2, 0.4, 0.8, 0.6) # Darker, more blue
-			rs.offset = active_sprite.offset
-			
-			# ADD MOON REFLECTION IN POND
-			var moon_ref = reflection.get_node_or_null("MoonRef")
-			if not moon_ref and moon_light:
-				moon_ref = Sprite2D.new()
-				moon_ref.name = "MoonRef"
-				moon_ref.texture = moon_light.get_child(0).texture
-				reflection.add_child(moon_ref)
-			
-			if moon_ref and moon_light:
-				# Simple parallax reflection: offset based on pond pos vs moon pos
-				var rel_pos = (moon_light.global_position - current_pond.global_position)
-				moon_ref.position = -rel_pos.normalized() * 30.0
-				moon_ref.modulate = Color(1, 1, 1, 0.2)
-				moon_ref.scale = Vector2(0.4, 0.2) # Flattened on water
-		else:
-			reflection.visible = false
+func _reflect_skill_in_pond(skill: Node2D, pond: Node2D):
+	var water = pond.get_node_or_null("PondWater")
+	if not water: return
+	var re_cont = water.get_node_or_null("Reflections")
+	if not re_cont: return
+	
+	var ref_name = "Ref_" + str(skill.get_instance_id())
+	var ref = re_cont.get_node_or_null(ref_name)
+	
+	# Auto-cleanup if original is gone
+	if not is_instance_valid(skill):
+		if ref: ref.queue_free()
+		return
+
+	if not ref:
+		if skill is Line2D:
+			ref = Line2D.new()
+			ref.width = skill.width * 0.7
+			ref.default_color = skill.default_color
+			ref.texture = skill.texture
+			ref.texture_mode = skill.texture_mode
+			ref.material = skill.material
+		elif skill is Sprite2D or skill.name.contains("Missile"):
+			ref = Sprite2D.new()
+			ref.texture = skill.texture
+			ref.hframes = skill.hframes
+			ref.vframes = skill.vframes
+		elif skill is Polygon2D:
+			ref = Polygon2D.new()
+			ref.polygon = skill.polygon
+			ref.color = skill.color
+		else: return
+		
+		ref.name = ref_name
+		re_cont.add_child(ref)
+	
+	# Mirroring logic relative to ocean surface
+	var pond_y = pond.global_position.y
+	ref.global_position.x = skill.global_position.x
+	ref.global_position.y = pond_y + (pond_y - skill.global_position.y)
+	
+	ref.modulate = Color(0.1, 0.4, 1.0, 0.45)
+	
+	if skill is Line2D:
+		ref.clear_points()
+		for p in skill.points:
+			ref.add_point(Vector2(p.x, -p.y))
+		ref.scale.y = -1
+	elif skill is Sprite2D:
+		ref.frame = skill.frame
+		ref.flip_v = true
+		ref.scale = skill.scale
+		ref.modulate = Color(0.1, 0.4, 1.0, 0.4)
+	elif skill is Polygon2D:
+		ref.scale.y = -1
+		ref.modulate = Color(0.1, 0.4, 1.0, 0.3)
 
 func _ready():
+	_setup_wind_manager()
 	setup_chill_background()
 	setup_moon()
 	setup_trees()
@@ -548,7 +676,7 @@ func _ready():
 	var floor_rect = ColorRect.new()
 	floor_rect.size = Vector2(SCREEN_WIDTH*16, 25)
 	floor_rect.position = Vector2(-SCREEN_WIDTH/2, SCREEN_HEIGHT+64)
-	floor_rect.color = Color(0.1, 0.1, 0.15, 0.8) # Dark blueish gray
+	floor_rect.color = Color(0.1, 0.1, 0.15, 0.2) # Dark blueish gray
 	floor_rect.name = "Floor"
 	add_child(floor_rect)
 	# -------------------
@@ -680,8 +808,8 @@ func _ready():
 	player_light = load("res://light_spirit.gd").new()
 	player_light.name = "PlayerLightBeacon"
 	player_light.color = Color(1.0, 0.6, 0.2, 0.2) # Cozy fire camp spirit
-	player_light.radius = 128.0
-	player_light.intensity = 10.6
+	player_light.radius = 32.0
+	player_light.intensity = 0.46
 	add_child(player_light)
 	
 	setup_reflections()
@@ -735,6 +863,7 @@ func create_spectrum_sprite() -> Sprite2D:
 # create_main_character REMOVED (Handled by PlayerController)
 
 func _process(delta):
+	_update_environment(delta)
 	update_reflections()
 	update_light_effects(delta)
 
@@ -925,5 +1054,92 @@ func modulation(A, freq, phase, offset):
 func draw_point(pos, color):
 	draw_circle(pos, 1.0, color)
 
+func _setup_wind_manager():
+	wind_manager = load("res://wind_manager.gd").new()
+	wind_manager.wind_strength = wind_base_strength
+	wind_manager.wind_frequency = wind_frequency
+	add_child(wind_manager)
+
+func _update_environment(delta):
+	# 1. Update Wind Influence on Grass
+	if wind_manager:
+		for i in range(5):
+			var grass = get_node_or_null("GrassLayer_" + str(i))
+			if grass and grass.material:
+				# Scale wind speed in shader based on manager
+				grass.material.set_shader_parameter("wind_speed", wind_manager.current_wind_power * 1.5)
+		
+		# 1b. Sway Trees
+		for tree in all_trees:
+			var wind_at = wind_manager.get_wind_at(tree.global_position)
+			var target_rot = (wind_at - 1.0) * 0.08 # Subtle sway
+			tree.rotation = lerp(tree.rotation, target_rot, delta * 2.0)
+	
+	# 2. Spawn Leaves from Trees
+	leaf_timer += delta
+	if leaf_timer > 0.5:
+		leaf_timer = 0.0
+		for tree in all_trees:
+			if randf() < leaf_spawn_chance * 0.8: # scale by frequency
+				_spawn_leaf(tree.global_position)
+
+	# 3. Update Leaf Physics
+	_update_leaves(delta)
+
+func _spawn_leaf(pos: Vector2):
+	var leaf = Sprite2D.new()
+	leaf.texture = load(LEAF_TEX)
+	if not leaf.texture: return # Safety
+	
+	leaf.hframes = 15
+	leaf.frame = randi() % 15
+	leaf.position = pos
+	leaf.scale = Vector2(0.8, 0.8) * randf_range(0.8, 1.2)
+	leaf.rotation = randf() * TAU
+	leaf.z_index = -2 # In front of trees mostly
+	leaf.modulate.a = 0.9
+	
+	# Custom metadata for physics
+	var leaf_data = {
+		"node": leaf,
+		"velocity": Vector2(randf_range(-20, 20), randf_range(10, 30)),
+		"rot_speed": randf_range(-2.0, 2.0),
+		"life": randf_range(5.0, 8.0),
+		"phase": randf() * TAU # for swaying
+	}
+	
+	add_child(leaf)
+	all_leaves.append(leaf_data)
+
+func _update_leaves(delta):
+	var wind_power = 0.0
+	if wind_manager:
+		wind_power = wind_manager.current_wind_power
+
+	for i in range(all_leaves.size() - 1, -1, -1):
+		var l = all_leaves[i]
+		l.life -= delta
+		if l.life <= 0:
+			l.node.queue_free()
+			all_leaves.remove_at(i)
+			continue
+		
+		# Physics
+		# Sway based on phase and wind
+		var sway = sin(Time.get_ticks_msec() * 0.002 + l.phase) * 30.0
+		
+		l.velocity.y += leaf_gravity * delta
+		l.velocity.x = (wind_power * leaf_wind_influence) + sway
+		
+		l.node.position += l.velocity * delta
+		l.node.rotation += l.rot_speed * delta
+		
+		# Animate frames slowly
+		if Engine.get_process_frames() % 10 == 0:
+			l.node.frame = (l.node.frame + 1) % 15
+		
+		# Fade out near end of life
+		if l.life < 1.0:
+			l.node.modulate.a = l.life
 
 # ----------------------------

@@ -129,12 +129,15 @@ func _simulate_character_physics(char_node, delta):
 	# Determine if we hit the floor
 	# FIXME: this can cause issues if the player is moving up through a platform and then down again in the same frame, but for simplicity we will allow it for now. A more robust solution would involve checking the trajectory of the player within the frame.
 	var on_floor = char_node.global_position.y + feet_offset >= current_floor_y - 2.0
-	
-	if on_floor and velocity.y >= 0:
+	var is_snapped = on_floor and velocity.y >= 0
+
+	if is_snapped:
 		velocity.y = 0
 		char_node.position.y = current_floor_y - feet_offset
+		if char_node.is_in_group("Player"):
+			floor_y = current_floor_y # Update global floor for reflections
 
-		if(Engine.get_process_frames() % 30 == 0):
+		if(Engine.get_process_frames() % 60 == 0):
 			print("Landed on floor/platform at y =", current_floor_y)
 	else:
 		# 2. Apply Gravity if strictly in the air or moving upwards
@@ -148,7 +151,7 @@ func _simulate_character_physics(char_node, delta):
 	
 	# 4. Sync State back to node
 	char_node.set("velocity", velocity)
-	char_node.set("is_on_floor_physics", on_floor)
+	char_node.set("is_on_floor_physics", is_snapped)
 
 
 func _simulate_soft_body(body, delta):

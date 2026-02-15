@@ -7,7 +7,10 @@ uniform float glow_intensity : hint_range(0.0, 10.0) = 5.0;
 void fragment() {
     float size_x = border_width / float(textureSize(TEXTURE, 0).x);
     float size_y = border_width / float(textureSize(TEXTURE, 0).y);
-    vec4 sprite_color = texture(TEXTURE, UV);
+    // Sample the texture
+    vec4 tex_color = texture(TEXTURE, UV);
+    // Respect modulation (lighting)
+    vec4 sprite_color = tex_color * COLOR;
     
     float alpha = 0.0;
     // Multi-sampled outline for thick borders
@@ -20,11 +23,13 @@ void fragment() {
     
     vec4 final_color = border_color;
     final_color.rgb *= glow_intensity;
+    // Apply modulation to border too so it blends with environment light
+    final_color.rgb *= COLOR.rgb;
     
     // Pulse effect
     float pulse = (sin(TIME * 6.0) * 0.5 + 0.5) * 0.4 + 0.6;
-    final_color.a = clamp(alpha - sprite_color.a, 0.0, 1.0) * pulse;
+    final_color.a = clamp(alpha - tex_color.a, 0.0, 1.0) * pulse;
     
     // Smooth transition
-    COLOR = mix(final_color, sprite_color, sprite_color.a);
+    COLOR = mix(final_color, sprite_color, tex_color.a);
 }
