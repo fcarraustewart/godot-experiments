@@ -437,8 +437,8 @@ func update_light_effects(delta):
 		
 		for l in all_lights:
 			# FIX: player light should not light up player.
-			if item.type == "entity" and ent == player and l == player_light:
-				continue
+		#	if item.type == "entity" and ent == player and l == player_light:
+		#		continue
 			if(l in ent.get_children()):
 				continue
 				
@@ -1095,19 +1095,22 @@ func _update_environment(delta):
 	
 	# 2. Spawn Leaves from Trees
 	leaf_timer += delta
-	if leaf_timer > 0.5:
+	if leaf_timer > 0.4: # Slightly faster spawning
 		leaf_timer = 0.0
+		var floor_limit = SCREEN_HEIGHT + 100
+		
 		for tree in all_trees:
-			if randf() < leaf_spawn_chance * 0.8: # scale by frequency
-				# Sprite height is roughly 512, scaled by s. 
-				var height = tree.texture.get_height() * tree.scale.y
-				var top_y = tree.global_position.y - (height * 0.5)
-				
+			# Check if tree is roughly on screen or above visible floor
+			if tree.global_position.y > floor_limit + 500: continue
+			
+			if randf() < leaf_spawn_chance:
+				var h = tree.texture.get_height() * tree.scale.y
 				# ONLY spawn leaves if the top of the tree is actually in the air (above floor)
-				var floor_limit = SCREEN_HEIGHT + 64 # Dynamic floor_y
-				if top_y < floor_limit - 100:
-					var canopy_offset = Vector2.ZERO#Vector2(randf_range(-80, 80), -height * 0.45)
-					_spawn_leaf(tree.global_position + canopy_offset)
+				floor_limit = SCREEN_HEIGHT + 64 # Dynamic floor_y
+				#var top_y = tree.global_position.y - h / 2 # Assuming tree origin is center
+				#if top_y < floor_limit - 100:
+				var canopy_offset = Vector2(randf_range(-80, 80), -h * 0.45)
+				_spawn_leaf(tree.global_position + canopy_offset)
 
 	# 3. Update Leaf Physics
 	_update_leaves(delta)
@@ -1117,12 +1120,28 @@ func _spawn_leaf(pos: Vector2):
 	leaf.texture = load(LEAF_TEX)
 	if not leaf.texture: return # Safety
 	
+	add_child(leaf) # Add BEFORE setting global_position
+	leaf.global_position = pos
+	leaf.z_index = 12 # Even higher to ensure visibility over everything
+	
+	# --- VISIBLE DEBUG MARKER (Lasts 1 second) ---
+	var debug = Polygon2D.new()
+	var sides = 8
+	var points = PackedVector2Array()
+	for i in range(sides):
+		var angle = i * TAU / sides
+		points.append(Vector2(cos(angle), sin(angle)) * 8.0)
+	debug.polygon = points
+	debug.color = Color(1, 1, 1, 0.5)
+	add_child(debug)
+	debug.global_position = pos
+	get_tree().create_timer(1.0).timeout.connect(debug.queue_free)
+	# ----------------------------------------------
+
 	leaf.hframes = 15
 	leaf.frame = randi() % 15
-	leaf.position = pos
 	leaf.scale = Vector2(0.8, 0.8) * randf_range(0.8, 1.2)
 	leaf.rotation = randf() * TAU
-	leaf.z_index = -4 # In front of trees mostly
 	leaf.modulate.a = 0.9
 	
 	# Apply Leaf Shader for moonlight highlights
@@ -1133,13 +1152,13 @@ func _spawn_leaf(pos: Vector2):
 	# Custom metadata for physics
 	var leaf_data = {
 		"node": leaf,
-		"velocity": Vector2(randf_range(-20, 20), randf_range(10, 30)),
-		"rot_speed": randf_range(-2.0, 2.0),
+		"velocity": Vector2(randf_range(-40, 40), randf_range(20, 50)),
+		"rot_speed": randf_range(-3.0, 3.0),
 		"life": randf_range(5.0, 8.0),
-		"phase": randf() * TAU # for swaying
+		"phase": randf() * TAU,
+		"sway_intensity": randf_range(30.0, 60.0)
 	}
 	
-	add_child(leaf)
 	all_leaves.append(leaf_data)
 
 func _update_leaves(delta):
@@ -1149,21 +1168,22 @@ func _update_leaves(delta):
 
 	for i in range(all_leaves.size() - 1, -1, -1):
 		var l = all_leaves[i]
-		l.life -= delta
-		if l.life <= 0:
-			l.node.queue_free()
+		if not is_instance_valid(l.node):
 			all_leaves.remove_at(i)
 			continue
-		
-		# Physics
-		# Sway based on phase and wind
-		var sway = sin(Time.get_ticks_msec() * 0.002 + l.phase) * 30.0
-		
+			
+		# 1. Update Physics
 		l.velocity.y += leaf_gravity * delta
-		l.velocity.x = (wind_power * leaf_wind_influence) + sway
+		l.velocity.x = lerp(l.velocity.x, wind_power * leaf_wind_influence, delta * 2.0)
 		
-		l.node.position += l.velocity * delta
+		# Organic Swaying
+		l.phase += delta * 2.5
+		var sway = sin(l.phase) * l.sway_intensity
+		l.node.global_position += (l.velocity + Vector2(sway, 0)) * delta
 		l.node.rotation += l.rot_speed * delta
+		
+		# 2. Cleanup & Fade
+		l.life -= delta
 		
 		# Animate frames slowly
 		if Engine.get_process_frames() % 10 == 0:
@@ -1172,6 +1192,10 @@ func _update_leaves(delta):
 		# Fade out near end of life
 		if l.life < 1.0:
 			l.node.modulate.a = l.life
+			
+		if l.life <= 0: #or l.node.global_position.y > (SCREEN_HEIGHT + 200):
+			l.node.queue_free()
+			all_leaves.remove_at(i)
 func _create_tiled_area(pos: Vector2, width: float, z: int) -> Vector2:
 	# Tiles are 32x32. Calculate how many we need.
 	var num_tiles = max(2, int(ceil(width / 32.0)))
@@ -1242,16 +1266,21 @@ func _spawn_grass_swarm(pos: Vector2):
 		manager.add_child(u)
 		manager.members.append(u)
 		u.initialize_flock_unit(manager, i)
+		u.z_index = 11 # Above tiles and leaves
 		units.append(u)
 		
 	# Swarm Life cycle
 	var t = create_tween()
-	t.tween_interval(0.52) # Short lifespan for the swarm dispersion
+	t.tween_interval(0.6) # Short dispersion burst
 	t.tween_callback(func():
 		for u in units:
 			if is_instance_valid(u):
 				_spawn_leaf(u.global_position)
-				print("[ShowSpectrum] Grass swarm unit spawned a leaf at: ", u.global_position)
+	)
+	t.tween_interval(1.6) # Short dispersion burst
+	t.tween_callback(func():
+		for u in units:
+			if is_instance_valid(u):
 				u.queue_free()
 		swarm_container.queue_free()
 	)
