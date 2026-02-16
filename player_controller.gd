@@ -13,6 +13,9 @@ const SPEED_WHILE_JUMPING = 0.7
 const SPEED_WHILE_DASHING = 4.5
 const INTERRUPTED_DURATION = 7.0
 const STUNNED_DURATION = 3.0
+
+const COYOTE_TIME = 0.15 # Grace period after falling
+const JUMP_BUFFER = 0.15 # Buffer for early jump press
  
 # --- ANIMATION ASSETS ---
 const CASTING_TEXTURES = {
@@ -67,6 +70,9 @@ var is_rooted_active = false
 var is_slowed_active = false
 var active_slow_factor = 1.0
 var last_cast_success = true
+
+var coyote_timer: float = 0.0
+var jump_buffer_timer: float = 0.0
 
 
 
@@ -378,7 +384,19 @@ func _exit_tree():
 		CombatManager.unregister_entity(self)
 
 func _process(delta):
-	# State Management
+	# 1. Update Timers
+	if is_on_floor_physics:
+		coyote_timer = COYOTE_TIME
+	else:
+		coyote_timer = max(0.0, coyote_timer - delta)
+		
+	jump_buffer_timer = max(0.0, jump_buffer_timer - delta)
+	
+	# Handle buffered jump
+	if jump_buffer_timer > 0.0 and is_on_floor_physics:
+		_perform_jump()
+
+	# 2. Main State Machine
 	match current_state:
 		State.IDLE:
 			process_idle(delta)
@@ -578,18 +596,30 @@ func _on_input_throttle(val: float):
 func _on_input_steer(dir: Vector2):
 	input_steer_target = dir
 
+func _on_jump_input():
+	if is_on_floor_physics or coyote_timer > 0.0:
+		if current_state != State.JUMPING and current_state != State.DASHING:
+			_perform_jump()
+	else:
+		jump_buffer_timer = JUMP_BUFFER
+
+func _perform_jump():
+	velocity.y = -800.0 # Jump Impulse
+	is_on_floor_physics = false
+	coyote_timer = 0.0
+	jump_buffer_timer = 0.0
+	state_timer = JUMP_DURATION
+	change_state(State.JUMPING)
+	emit_signal("jumped")
+
+# instants:
 func _on_input_action(action_name: String, data: Dictionary):
 	match action_name:
 		"toggle_mouse_steer":
 			is_mouse_steering = data.get("active", false)
 		
 		"jump":
-			# Strict jump validation: must be on floor and not currently jumping/dashing
-			if is_on_floor_physics and current_state != State.JUMPING and current_state != State.DASHING:
-				velocity.y = -500.0 # Jump Impulse
-				is_on_floor_physics = false 
-				print("Jump Input Accepted. Velocity: ", velocity.y)
-				emit_signal("jumped")
+			_on_jump_input()
 		
 		"dash":
 			if current_state != State.JUMPING and current_state != State.DASHING:

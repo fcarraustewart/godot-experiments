@@ -7,7 +7,8 @@ extends Node
 var gravity_player = Vector2(0, 800) # Increased for snappy platforming
 var gravity_chains = Vector2(0, 20) # Increased for snappy platforming
 var simulated_objects = []
-var floor_y = 450.0 # Default base floor
+const DEFAULT_FLOOR_Y = 450.0
+var floor_y = DEFAULT_FLOOR_Y # Current visual floor level (for reflections)
 var all_platforms = [] # Array of Rect2 representing solid blocks
 
 func clear_platforms():
@@ -112,7 +113,7 @@ func _simulate_character_physics(char_node, delta):
 	var velocity = char_node.get("velocity") if "velocity" in char_node else Vector2.ZERO
 	
 	# 1. Platform & Floor Detection
-	var current_floor_y = floor_y
+	var current_floor_y = floor_y # Always reset to base ground for this entity
 	
 	# Only check floor/platforms if we are moving down or stationary at apex
 	if velocity.y >= 0:
@@ -121,9 +122,9 @@ func _simulate_character_physics(char_node, delta):
 			# plat is a Rect2
 			if char_node.global_position.x >= plat.position.x and char_node.global_position.x <= plat.position.x + plat.size.x:
 				var plat_top = plat.position.y
-				# Vertical threshold: must be within 20px of the top to land
+				# Vertical threshold: must be within a safe window of the top to land
 				var feet_y = char_node.global_position.y + feet_offset
-				if feet_y >= plat_top - 5 and feet_y <= plat_top + 20:
+				if feet_y >= plat_top - 15 and feet_y <= plat_top + 60:
 					# Land!
 					current_floor_y = plat_top
 					break

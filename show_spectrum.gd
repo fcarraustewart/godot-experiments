@@ -523,14 +523,127 @@ func update_reflections():
 					re_cont.add_child(reflection)
 				_update_node_reflection(entity, reflection, best_pond)
 
-	# 2. Update Dynamic Skills
+	# 2. Update Dynamic Visuals & Skills
+	var current_frame = Engine.get_process_frames()
+	var visuals_to_reflect = []
+	
+	# Scrape Entities (Player and Enemies)
+	var entities = get_tree().get_nodes_in_group("Player") + get_tree().get_nodes_in_group("Enemy")
+	for ent in entities:
+		if is_instance_valid(ent):
+			_collect_visual_nodes_recursive(ent, visuals_to_reflect)
+	
+	# Also scrape world-level skills (e.g. Chain Lightning lines)
 	for child in get_children():
-		if child.name.contains("Reflection") or child.name.contains("Ref_"): continue
-		if child is Line2D or child is Polygon2D or (child is Sprite2D and child.name.contains("Missile")):
-			for pond in all_ponds:
-				var dist = abs(child.global_position.x - pond.global_position.x)
-				if dist < 400:
-					_reflect_skill_in_pond(child, pond)
+		if child.name.contains("Pond") or child.name.contains("Ref_") or child == player_light or child == moon_light: continue
+		_collect_visual_nodes_recursive(child, visuals_to_reflect)
+			
+	for vis in visuals_to_reflect:
+		if not is_instance_valid(vis) or not vis.visible or vis.modulate.a < 0.1: continue
+		
+		# Robust X-position detection for wide nodes like Line2D
+		var vis_x = vis.global_position.x
+		if vis is Line2D and vis.points.size() > 0:
+			# Use the horizontal span's center
+			var x_sum = 0.0
+			for p in vis.points: x_sum += p.x
+			vis_x += x_sum / vis.points.size()
+		
+		for pond in all_ponds:
+			# Skip if pond is off-screen Relative to player
+			if abs(pond.global_position.x - player.global_position.x) > 1200: continue
+			
+			# Broad phase horizontal check
+			var dist_x = abs(vis_x - pond.global_position.x)
+			if dist_x > 400: continue # Slightly wider for lines
+			
+			_reflect_node_in_pond(vis, pond, current_frame)
+			break # Only reflect in one pond
+			
+	# 3. Mark-and-Sweep Cleanup
+	_prune_old_reflections(current_frame)
+
+func _collect_visual_nodes_recursive(root: Node, list: Array):
+	if root is Sprite2D or root is Line2D or root is Polygon2D:
+		if not root.name.contains("Ref_") and not root.name.contains("Reflection"):
+			list.append(root)
+	
+	for child in root.get_children():
+		_collect_visual_nodes_recursive(child, list)
+
+func _reflect_node_in_pond(vis: Node2D, pond: Node2D, frame: int):
+	var water = pond.get_node_or_null("PondWater")
+	if not water: return
+	var re_cont = water.get_node_or_null("Reflections")
+	if not re_cont: return
+	
+	var ref_name = "Ref_" + str(vis.get_instance_id())
+	var ref = re_cont.get_node_or_null(ref_name)
+	
+	if not ref:
+		if vis is Line2D:
+			ref = Line2D.new()
+			ref.width = vis.width * 0.7
+			ref.texture = vis.texture
+			ref.texture_mode = vis.texture_mode
+			ref.material = vis.material
+		elif vis is Sprite2D:
+			ref = Sprite2D.new()
+			ref.texture = vis.texture
+			ref.hframes = vis.hframes
+			ref.vframes = vis.vframes
+		elif vis is Polygon2D:
+			ref = Polygon2D.new()
+			ref.polygon = vis.polygon
+			ref.color = vis.color
+		
+		if ref:
+			ref.name = ref_name
+			re_cont.add_child(ref)
+	
+	if ref:
+		ref.set_meta("last_f", frame)
+		
+		# Position Mapping
+		var pond_top_y = pond.global_position.y
+		var water_poly = water as Polygon2D
+		if water_poly:
+			var local_min_y = 0.0
+			for p in water_poly.polygon:
+				if p.y < local_min_y: local_min_y = p.y
+			pond_top_y += local_min_y
+
+		ref.global_position.x = vis.global_position.x
+		var dy = vis.global_position.y - pond_top_y
+		ref.global_position.y = pond_top_y - dy
+		
+		# Visual State Sync
+		ref.visible = vis.visible
+		ref.modulate = Color(0.1, 0.4, 0.9, 0.4)
+		
+		if vis is Line2D:
+			ref.points = vis.points
+			ref.global_rotation = -vis.global_rotation
+			ref.scale.y = -1
+		elif vis is Sprite2D:
+			ref.frame = vis.frame
+			ref.flip_v = !vis.flip_v
+			ref.scale = vis.scale
+		elif vis is Polygon2D:
+			ref.polygon = vis.polygon
+			ref.global_rotation = -vis.global_rotation
+			ref.scale.y = -vis.scale.y
+
+func _prune_old_reflections(frame: int):
+	for pond in all_ponds:
+		var water = pond.get_node_or_null("PondWater")
+		if not water: continue
+		var re_cont = water.get_node_or_null("Reflections")
+		if not re_cont: continue
+		for ref in re_cont.get_children():
+			if ref.has_meta("last_f"):
+				if ref.get_meta("last_f") < frame:
+					ref.queue_free()
 
 func _update_node_reflection(entity: Node2D, reflection: Node2D, pond: Node2D):
 	var active_sprite = null
@@ -590,62 +703,6 @@ func _update_node_reflection(entity: Node2D, reflection: Node2D, pond: Node2D):
 		pass
 
 			
-func _reflect_skill_in_pond(skill: Node2D, pond: Node2D):
-	var water = pond.get_node_or_null("PondWater")
-	if not water: return
-	var re_cont = water.get_node_or_null("Reflections")
-	if not re_cont: return
-	
-	var ref_name = "Ref_" + str(skill.get_instance_id())
-	var ref = re_cont.get_node_or_null(ref_name)
-	
-	# Auto-cleanup if original is gone
-	if not is_instance_valid(skill):
-		if ref: ref.queue_free()
-		return
-
-	if not ref:
-		if skill is Line2D:
-			ref = Line2D.new()
-			ref.width = skill.width * 0.7
-			ref.default_color = skill.default_color
-			ref.texture = skill.texture
-			ref.texture_mode = skill.texture_mode
-			ref.material = skill.material
-		elif skill is Sprite2D or skill.name.contains("Missile"):
-			ref = Sprite2D.new()
-			ref.texture = skill.texture
-			ref.hframes = skill.hframes
-			ref.vframes = skill.vframes
-		elif skill is Polygon2D:
-			ref = Polygon2D.new()
-			ref.polygon = skill.polygon
-			ref.color = skill.color
-		else: return
-		
-		ref.name = ref_name
-		re_cont.add_child(ref)
-	
-	# Mirroring logic relative to ocean surface
-	var pond_y = pond.global_position.y
-	ref.global_position.x = skill.global_position.x
-	ref.global_position.y = pond_y + (pond_y - skill.global_position.y)
-	
-	ref.modulate = Color(0.1, 0.4, 1.0, 0.45)
-	
-	if skill is Line2D:
-		ref.clear_points()
-		for p in skill.points:
-			ref.add_point(Vector2(p.x, -p.y))
-		ref.scale.y = -1
-	elif skill is Sprite2D:
-		ref.frame = skill.frame
-		ref.flip_v = true
-		ref.scale = skill.scale
-		ref.modulate = Color(0.1, 0.4, 1.0, 0.4)
-	elif skill is Polygon2D:
-		ref.scale.y = -1
-		ref.modulate = Color(0.1, 0.4, 1.0, 0.3)
 
 func _ready():
 	_setup_wind_manager()
@@ -1206,7 +1263,9 @@ func _create_tiled_area(pos: Vector2, width: float, z: int) -> Vector2:
 	for i in range(num_tiles):
 		var tile = tile_script.new()
 		tile.z_index = z
-		# Calculate tile position (Tiles are centered, so offset by 16)
+		# Calculate tile position (Tiles are 32x32, with bottom at pos.y+16)
+		# To stand ON TOP, the physics floor must be at the tile's Top (global_position.y - 16).
+		# By setting global_position.y to pos.y + 16, Top is at pos.y.
 		tile.global_position = pos + Vector2(i * 32 + 16, 16)
 		
 		if i == 0:
