@@ -30,9 +30,9 @@ var leaf_timer = 0.0
 const LEAF_TEX = "res://art/environment/leaf/leaf1.png"
 
 # --- TWEAK PARAMETERS ---
-var wind_base_strength = 0.5
+var wind_base_strength = 1.5
 var wind_frequency = 0.8
-var leaf_spawn_chance = 0.6 # Higher = more leaves
+var leaf_spawn_chance = 0.3 # Higher = more leaves
 var leaf_gravity = 40.0
 var leaf_wind_influence = 80.0 # How much leaves blow sideways
 # -----------------------
@@ -241,7 +241,7 @@ func setup_ponds():
 	var tree_base_y = SCREEN_HEIGHT - 50
 	
 	print("Spawning water ponds...")
-	for i in range(64):
+	for i in range(16):
 		var pond_container = Node2D.new()
 		pond_container.name = "Pond_" + str(i)
 		
@@ -558,7 +558,7 @@ func update_reflections():
 			if dist_x > 400: continue # Slightly wider for lines
 			
 			_reflect_node_in_pond(vis, pond, current_frame)
-			break # Only reflect in one pond
+			#break # Only reflect in one pond
 			
 	# 3. Mark-and-Sweep Cleanup
 	_prune_old_reflections(current_frame)
@@ -753,7 +753,7 @@ func _ready():
 	var actual_floor_size = _create_tiled_area(floor_pos, floor_width, 0)
 	
 	if PhysicsManager:
-		PhysicsManager.floor_y = floor_pos.y
+		PhysicsManager.floor_y = floor_pos.y - actual_floor_size.y
 	# -------------------
 	
 	# --- SETUP PLAYER CONTROLLER ---
@@ -1152,7 +1152,7 @@ func _update_environment(delta):
 	
 	# 2. Spawn Leaves from Trees
 	leaf_timer += delta
-	if leaf_timer > 0.4: # Slightly faster spawning
+	if leaf_timer > 0.8: # Slightly faster spawning
 		leaf_timer = 0.0
 		var floor_limit = SCREEN_HEIGHT + 100
 		
@@ -1181,19 +1181,8 @@ func _spawn_leaf(pos: Vector2):
 	leaf.global_position = pos
 	leaf.z_index = 12 # Even higher to ensure visibility over everything
 	
-	# --- VISIBLE DEBUG MARKER (Lasts 1 second) ---
-	var debug = Polygon2D.new()
-	var sides = 8
-	var points = PackedVector2Array()
-	for i in range(sides):
-		var angle = i * TAU / sides
-		points.append(Vector2(cos(angle), sin(angle)) * 8.0)
-	debug.polygon = points
-	debug.color = Color(1, 1, 1, 0.5)
-	add_child(debug)
-	debug.global_position = pos
-	get_tree().create_timer(1.0).timeout.connect(debug.queue_free)
-	# ----------------------------------------------
+	# var debug_marker = DebugMarker.create(leaf, pos, 1.0, Color(1, 1, 1, 0.5))
+	# fixme debug_marker does not work.
 
 	leaf.hframes = 15
 	leaf.frame = randi() % 15

@@ -359,10 +359,11 @@ func _ready():
 	aim_indicator = Node2D.new()
 	aim_arrow_line = Line2D.new()
 	aim_arrow_line.points = PackedVector2Array([Vector2(0,0), Vector2(50,0), Vector2(42.5, -5), Vector2(50,0), Vector2(42.5, 5)])
-	aim_arrow_line.width = 2.0
+	aim_arrow_line.width = 1.0
 	aim_arrow_line.default_color = Color(1.0, 1.0, 1.0, 0.6)
 	aim_indicator.add_child(aim_arrow_line)
 	aim_indicator.visible = false
+	aim_indicator.scale = Vector2(0.5, 0.5)
 	add_child(aim_indicator)
 
 	# Connect Internal Signals
@@ -932,8 +933,7 @@ const PLAYER_SWORD_HITBOX_OFFSET = Vector2(26.7, 0)
 func update_aim_indicator():
 	if is_mouse_steering:
 		aim_indicator.visible = true
-		var mouse_pos = get_global_mouse_position()
-		aim_indicator.rotation = (mouse_pos - position).angle()
+		aim_indicator.rotation = (input_steer_target - position).angle()
 	else:
 		aim_indicator.visible = false
 

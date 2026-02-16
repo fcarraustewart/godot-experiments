@@ -125,7 +125,7 @@ func _spawn_physics_chain(start_pos: Vector2, target: Node2D, spread: float, fro
 	line.width = 20.0 
 	line.texture = load("res://art/fire_chain.png")
 	line.texture_mode = Line2D.LINE_TEXTURE_STRETCH
-	line.modulate = Color(0.1, 0.01, 0.01, 1.0)
+	line.modulate = Color(1.0, 1.0, 1.0, 1.0)
 	
 	var mat = ShaderMaterial.new()
 	mat.shader = load("res://fire_chain.gdshader")
