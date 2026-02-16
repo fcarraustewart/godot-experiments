@@ -165,7 +165,6 @@ func setup_trees():
 			tree2.scale.x *= -1
 			
 		# Y Position: Ground level is roughly SCREEN_HEIGHT - 50
-		# Adjust for anchor (center)
 		var ground_y = SCREEN_HEIGHT - 50
 		var ground_y2 = SCREEN_HEIGHT*2 - 50
 
@@ -175,11 +174,10 @@ func setup_trees():
 		tree2.position = Vector2(x_pos2, ground_y2 - (tree_tex.get_height() * s2 * 0.5) + sink) 
 
 		# Depth sorting visual hack:
-		# Smaller/further back trees are darker and behind larger ones
-		tree.z_index = -10 + int(s * 5) # -10 to -3 range approx
-		tree2.z_index = -10 + int(s * 5) # -10 to -3 range approx
+		tree.z_index = -11 + int(s * 5) 
+		tree2.z_index = -11 + int(s2 * 5)
 		tree.modulate = Color(0.6, 0.6, 0.8).darkened((1.4 - s) * 0.5)
-		tree2.modulate = Color(0.6, 0.6, 0.8).darkened((1.4 - s) * 0.5)
+		tree2.modulate = Color(0.6, 0.6, 0.8).darkened((1.4 - s2) * 0.5)
 		
 		add_child(tree)
 		add_child(tree2)
@@ -243,7 +241,7 @@ func setup_ponds():
 	var tree_base_y = SCREEN_HEIGHT - 50
 	
 	print("Spawning water ponds...")
-	for i in range(12):
+	for i in range(64):
 		var pond_container = Node2D.new()
 		pond_container.name = "Pond_" + str(i)
 		
@@ -634,7 +632,7 @@ func _ready():
 	setup_chill_background()
 	setup_moon()
 	setup_trees()
-	setup_grass()
+	# setup_grass()
 	setup_ponds()
 	setup_platforms()
 	setup_tree_rays()
@@ -1081,7 +1079,15 @@ func _update_environment(delta):
 		leaf_timer = 0.0
 		for tree in all_trees:
 			if randf() < leaf_spawn_chance * 0.8: # scale by frequency
-				_spawn_leaf(tree.global_position)
+				# Sprite height is roughly 512, scaled by s. 
+				var height = tree.texture.get_height() * tree.scale.y
+				var top_y = tree.global_position.y - (height * 0.5)
+				
+				# ONLY spawn leaves if the top of the tree is actually in the air (above floor)
+				var floor_limit = SCREEN_HEIGHT + 64 # Dynamic floor_y
+				if top_y < floor_limit - 100:
+					var canopy_offset = Vector2.ZERO#Vector2(randf_range(-80, 80), -height * 0.45)
+					_spawn_leaf(tree.global_position + canopy_offset)
 
 	# 3. Update Leaf Physics
 	_update_leaves(delta)
@@ -1096,7 +1102,7 @@ func _spawn_leaf(pos: Vector2):
 	leaf.position = pos
 	leaf.scale = Vector2(0.8, 0.8) * randf_range(0.8, 1.2)
 	leaf.rotation = randf() * TAU
-	leaf.z_index = -2 # In front of trees mostly
+	leaf.z_index = -4 # In front of trees mostly
 	leaf.modulate.a = 0.9
 	
 	# Custom metadata for physics
