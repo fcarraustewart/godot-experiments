@@ -113,7 +113,7 @@ func _simulate_character_physics(char_node, delta):
 	var velocity = char_node.get("velocity") if "velocity" in char_node else Vector2.ZERO
 	
 	# 1. Platform & Floor Detection
-	var current_floor_y = floor_y # Always reset to base ground for this entity
+	var current_floor_y = DEFAULT_FLOOR_Y # Always reset for this specific character
 	
 	# Only check floor/platforms if we are moving down or stationary at apex
 	if velocity.y >= 0:
@@ -135,6 +135,7 @@ func _simulate_character_physics(char_node, delta):
 	var is_snapped = on_floor and velocity.y >= 0
 
 	if is_snapped:
+		# fixme this is very buggy and hacky, if the player is moving up through a platform and then down again in the same frame, they can get "stuck" to the platform. A more robust solution would involve checking the trajectory of the player within the frame.
 		velocity.y = 0
 		char_node.position.y = current_floor_y - feet_offset
 		if char_node.is_in_group("Player"):

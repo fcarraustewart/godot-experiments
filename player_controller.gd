@@ -521,6 +521,7 @@ func process_jumping(delta):
 	
 	# Only land if we are actually touching the floor AND not moving upwards
 	if is_on_floor_physics and velocity.y >= 0:
+		# is_on_floor_physics = false # Will be set by PhysicsManager when landing
 		change_state(State.IDLE)
 
 

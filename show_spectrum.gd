@@ -613,9 +613,17 @@ func _reflect_node_in_pond(vis: Node2D, pond: Node2D, frame: int):
 				if p.y < local_min_y: local_min_y = p.y
 			pond_top_y += local_min_y
 
+		# Reflection Center Calculation with Feet Offset Awareness
+		var f_off = vis.get("feet_offset") if "feet_offset" in vis else 32.0
+		var vis_center_y = vis.global_position.y
+		
 		ref.global_position.x = vis.global_position.x
-		var dy = vis.global_position.y - pond_top_y
-		ref.global_position.y = pond_top_y - dy
+		# Mirror logic: we want the feet (vis_center + f_off) reflected correctly
+		# dy is the distance from surface to feet
+		var dy = (vis_center_y + f_off) - pond_top_y
+		# The reflection's feet should be pond_top_y + dry
+		# Since it is flipped, the center is ref_feet + f_off
+		ref.global_position.y = pond_top_y + dy + f_off
 		
 		# Visual State Sync
 		ref.visible = vis.visible
@@ -627,8 +635,10 @@ func _reflect_node_in_pond(vis: Node2D, pond: Node2D, frame: int):
 			ref.scale.y = -1
 		elif vis is Sprite2D:
 			ref.frame = vis.frame
+			ref.flip_h = vis.flip_h
 			ref.flip_v = !vis.flip_v
 			ref.scale = vis.scale
+			ref.offset = vis.offset
 		elif vis is Polygon2D:
 			ref.polygon = vis.polygon
 			ref.global_rotation = -vis.global_rotation
@@ -753,7 +763,7 @@ func _ready():
 	var actual_floor_size = _create_tiled_area(floor_pos, floor_width, 0)
 	
 	if PhysicsManager:
-		PhysicsManager.floor_y = floor_pos.y - actual_floor_size.y
+		PhysicsManager.floor_y = floor_pos.y
 	# -------------------
 	
 	# --- SETUP PLAYER CONTROLLER ---
@@ -852,11 +862,6 @@ func _ready():
 			# Tint the enemy crow to look more sinister
 			enemy_crow.modulate = Color(2.0, 0.5, 2.0) # Purple Sinister Crow
 			add_child(enemy_crow)
-	
-	if PhysicsManager:
-		var floor_node = find_child("Floor")
-		if floor_node:
-			PhysicsManager.floor_y = floor_node.position.y
 			
 	# --- SPAWN ARCANE MAGES ---
 	for i in range(4): # Spawn 4 mages
@@ -1181,8 +1186,19 @@ func _spawn_leaf(pos: Vector2):
 	leaf.global_position = pos
 	leaf.z_index = 12 # Even higher to ensure visibility over everything
 	
-	# var debug_marker = DebugMarker.create(leaf, pos, 1.0, Color(1, 1, 1, 0.5))
-	# fixme debug_marker does not work.
+	# --- VISIBLE DEBUG OCTAGON (Lasts 1 second) ---
+	var debug = Polygon2D.new()
+	var sides = 8
+	var points = PackedVector2Array()
+	for i in range(sides):
+		var angle = i * TAU / sides
+		points.append(Vector2(cos(angle), sin(angle)) * 8.0)
+	debug.polygon = points
+	debug.color = Color(1, 1, 1, 0.5)
+	add_child(debug)
+	debug.global_position = pos
+	get_tree().create_timer(1.0).timeout.connect(debug.queue_free)
+	# ----------------------------------------------
 
 	leaf.hframes = 15
 	leaf.frame = randi() % 15
