@@ -116,8 +116,8 @@ func setup_moon():
 	moon_light = load("res://light_spirit.gd").new()
 	moon_light.name = "MoonLight"
 	moon_light.color = Color(0.8, 0.9, 1.0, 0.3) # Soft moonlight
-	moon_light.radius = 800.0
-	moon_light.intensity = 0.7
+	moon_light.radius = 300.0
+	moon_light.intensity = 0.3
 	# High up in the sky
 	moon_light.position = Vector2(SCREEN_WIDTH * 0.7, -200)
 	add_child(moon_light)
@@ -418,35 +418,55 @@ func update_light_effects(delta):
 			rays.modulate.a = lerp(rays.modulate.a, 0.0, delta * 2.0)
 
 	# 2. Sprite Illumination (Approaching sprites)
-	var entities = [player] + enemies
-	for ent in entities:
-		if not is_instance_valid(ent): continue
+	# 2. Sprite Illumination (Entities and Leaves)
+	var all_renderable = []
+	if is_instance_valid(player): 
+		all_renderable.append({"type": "entity", "obj": player})
+	for enemy in enemies:
+		if is_instance_valid(enemy):
+			all_renderable.append({"type": "entity", "obj": enemy})
+	
+	for l_data in all_leaves:
+		if is_instance_valid(l_data.node):
+			all_renderable.append({"type": "leaf", "obj": l_data.node})
+
+	for item in all_renderable:
+		var ent = item.obj
 		var boost : float = 0.0
+		var pos = ent.global_position
+		
 		for l in all_lights:
-			var dist: float = ent.global_position.distance_to(l.global_position)
-			# FIXME: player light should not light up player.
+			# FIX: player light should not light up player.
+			if item.type == "entity" and ent == player and l == player_light:
+				continue
 			if(l in ent.get_children()):
 				continue
+				
+			var dist: float = pos.distance_to(l.global_position)
 			if dist < l.radius:
 				boost += (1.0 - (dist / l.radius)) * l.intensity * 10
-				if(Engine.get_process_frames() % 30 == 0):
-					print("Entity ", ent.name, " is within light radius of ", l.name, " with distance ", dist, " and intensity ", l.intensity, " resulting in boost ", boost)
 		
 		var lit_color = Color(1.0 + boost, 1.0 + boost, 1.0 + boost * 0.5, 1.0)
 		
-		# If entity supports external lighting, use that (preferred for Player)
-		if "external_lighting_modulate" in ent:
-			if(Engine.get_process_frames() % 60 == 0): 
-				print("Applying lighting to ", ent.name, " with boost ", boost)
-			ent.external_lighting_modulate = lit_color
+		if item.type == "entity":
+			# If entity supports external lighting, use that (preferred for Player)
+			if "external_lighting_modulate" in ent:
+				ent.external_lighting_modulate = lit_color
+			else:
+				# Apply directly to sprite
+				if ent.has_method("get_active_sprite"):
+					var s = ent.call("get_active_sprite")
+					if s: s.modulate = lit_color
+				elif "sprite" in ent:
+					if ent.sprite: ent.sprite.modulate = lit_color
 		else:
-			# Apply directly to sprite
-			print("Applying lighting to sprite of entity ", ent.name, " with boost ", boost)
-			if ent.has_method("get_active_sprite"):
-				var s = ent.call("get_active_sprite")
-				if s: s.modulate = lit_color
-			elif "sprite" in ent:
-				if ent.sprite: ent.sprite.modulate = lit_color
+			# Leaf lighting
+			ent.modulate = Color(lit_color.r, lit_color.g, lit_color.b, ent.modulate.a)
+			if ent.material and ent.material is ShaderMaterial:
+				ent.material.set_shader_parameter("energy", 1.0 + boost * 0.5)
+				if moon_light:
+					var m_dir = (ent.global_position - moon_light.global_position).normalized()
+					ent.material.set_shader_parameter("light_dir", m_dir)
 
 func setup_reflections():
 	# We'll create reflections for the player and enemies
@@ -1105,6 +1125,11 @@ func _spawn_leaf(pos: Vector2):
 	leaf.z_index = -4 # In front of trees mostly
 	leaf.modulate.a = 0.9
 	
+	# Apply Leaf Shader for moonlight highlights
+	var mat = ShaderMaterial.new()
+	mat.shader = load("res://leaf.gdshader")
+	leaf.material = mat
+	
 	# Custom metadata for physics
 	var leaf_data = {
 		"node": leaf,
@@ -1173,8 +1198,62 @@ func _create_tiled_area(pos: Vector2, width: float, z: int) -> Vector2:
 			else:
 				tile.type = tile.TileType.DEFAULT
 		
+		if tile.type == tile.TileType.WITH_GRASS:
+			tile.connect("stepped_on_tile", _on_tile_stepped_on)
+			
 		add_child(tile)
 	
 	return Vector2(total_width, 32)
+
+func _on_tile_stepped_on(tile):
+	if tile.type == tile.TileType.WITH_GRASS:
+		_spawn_grass_swarm(tile.global_position - Vector2(0, 16)) # Offset to top of tile
+
+func _spawn_grass_swarm(pos: Vector2):
+	# User Request: Swarm with flockunit default
+	var swarm_container = Node2D.new()
+	swarm_container.global_position = pos
+	add_child(swarm_container)
+	
+	# Create Manager
+	var manager = BaseFlockSwarm.new()
+	manager.unit_count = 2
+	manager.target_attraction_weight = -0.005 # Dispersing
+	manager.max_speed = 12.0
+	manager.perception_radius = 50.0
+	manager.separation_weight = -2.5
+	manager.alignment_weight = -1.0
+	manager.spawn_radius = 3.0
+	manager.frequency = 1.8
+	swarm_container.add_child(manager)
+	
+	# Manually spawn units since we don't have a scene but want to use flock_unit.gd script
+	var units = []
+	var unit_script = load("res://flock_unit.gd")
+	for i in range(manager.unit_count):
+		var u = Node2D.new()
+		u.set_script(unit_script)
+		# Start exactly at tile pos
+		u.global_position = pos + Vector2(randf_range(-2, 2), randf_range(-2, 2))
+		# u.texture = load("res://art/environment/leaf/leaf1.png")
+		# u.frame = 0
+		# u.scale = Vector2(0.5, 0.5) * randf_range(0.8, 1.2)
+		# u.rotation = randf() * TAU
+		manager.add_child(u)
+		manager.members.append(u)
+		u.initialize_flock_unit(manager, i)
+		units.append(u)
+		
+	# Swarm Life cycle
+	var t = create_tween()
+	t.tween_interval(0.52) # Short lifespan for the swarm dispersion
+	t.tween_callback(func():
+		for u in units:
+			if is_instance_valid(u):
+				_spawn_leaf(u.global_position)
+				print("[ShowSpectrum] Grass swarm unit spawned a leaf at: ", u.global_position)
+				u.queue_free()
+		swarm_container.queue_free()
+	)
 
 # ----------------------------

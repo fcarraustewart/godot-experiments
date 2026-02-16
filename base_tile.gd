@@ -2,6 +2,8 @@ extends Sprite2D
 
 class_name BaseTile
 
+signal stepped_on_tile(tile)
+
 enum TileType { DEFAULT, SIDE_END, WITH_GRASS }
 enum TileState { IDLE, STEPPED_ON }
 
@@ -67,6 +69,7 @@ func _process(delta):
 		if state != TileState.STEPPED_ON:
 			state = TileState.STEPPED_ON
 			_update_visuals()
+			emit_signal("stepped_on_tile", self)
 	else:
 		if state != TileState.IDLE:
 			state = TileState.IDLE
