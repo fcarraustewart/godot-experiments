@@ -83,5 +83,5 @@ func perform_jump():
 	coyote_timer = 0.0
 	jump_buffer_timer = 0.0
 	parent.set("gravity_multiplier", jumping_gravity_mult)
-	if parent.has_signal("jumped"):
-		parent.emit_signal("jumped")
+
+	emit_signal("jumped")

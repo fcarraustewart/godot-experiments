@@ -110,7 +110,7 @@ func stun(duration: float):
 	state_timer = duration
 
 func hit():
-	if(not current_state == State.JUMPING and not current_state == State.DASHING):
+	if(not current_state == State.DASHING):
 		hit_count += 1
 		emit_signal("struck")
 func apply_slow(duration: int, slow_amount: float):
@@ -131,10 +131,10 @@ func _on_cast_interrupted(reason: Reason):
 			change_state(State.STUNNED)
 		
 		Reason.HIT:
-			print("Player hit during cast. Adding time 0.01!", hit_count)
-			diminishing_return = pow(0.8, hit_count) # Each hit adds less time, caps at ~5 hits for 1 second
-			if(state_timer > 0.0 and state_timer < casting_time):
-				if(diminishing_return < 3):
+			print("Player hit during cast. Adding time 0.01!. DR = ", diminishing_return)
+			if(state_timer < casting_time - 0.3):
+				diminishing_return += 1 # Each hit adds less time, caps at ~5 hits for 1 second
+				if(diminishing_return < 3.0):
 					state_timer -= 0.01 * diminishing_return # brief draw back on hit
 
 
@@ -142,6 +142,7 @@ func _on_cast_interrupted(reason: Reason):
 			change_state(State.IDLE)
 
 func _on_jumped():
+	print("Player jumped!")
 	if(is_rooted_active):
 		return
 	if current_state == State.CASTING or current_state == State.ATTACKING:
@@ -151,13 +152,14 @@ func _on_jumped():
 		current_state != BaseEntity.State.JUMP_PEAK or \
 		current_state != BaseEntity.State.FALLING:
 		change_state(BaseEntity.State.JUMPING)
-		jump_component.perform_jump()
 
 func _on_jump_peak():
+	print("Player reached jump peak!")
 	if current_state != BaseEntity.State.JUMP_PEAK:
 		change_state(BaseEntity.State.JUMP_PEAK)
 
 func _on_falling():
+	print("Player is falling!")
 	if current_state != BaseEntity.State.FALLING:
 		change_state(BaseEntity.State.FALLING)
 
