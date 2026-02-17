@@ -6,9 +6,7 @@ class_name PlayerController
 const SPEED = 500.0
 # ... (rest of constants)
 const ATTACK_DURATION = 0.3
-const JUMP_DURATION = 0.7
 const DASH_DURATION = 0.2
-const JUMP_HEIGHT = 80.0
 const SPEED_WHILE_JUMPING = 0.7
 const SPEED_WHILE_DASHING = 4.5
 const INTERRUPTED_DURATION = 7.0
@@ -66,14 +64,13 @@ signal charge_changed(new_val)
 # --- DATA ---
 var casting_direction = Vector2.ZERO
 # Physics simulation
-var is_rooted_active = false
+@export var is_rooted_active = false
 var is_slowed_active = false
 var active_slow_factor = 1.0
 var last_cast_success = true
 
-var coyote_timer: float = 0.0
-var jump_buffer_timer: float = 0.0
-
+var jump_component: JumpComponent
+@export var gravity_multiplier: float = 1.0
 
 
 # --- INPUT STATE (Populated by KeybindListener) ---
@@ -86,7 +83,6 @@ var game_node: Node2D # Reference to main world for spawning effects if needed
 
 signal cast_start(duration)
 signal cast_finished
-signal jumped
 signal dashed
 
 signal struck
@@ -123,7 +119,7 @@ func apply_root(duration: float):
 	emit_signal("rooted", duration)
 
 func _on_cast_interrupted(reason: Reason):
-	print("Player detected cast interruption!")
+	print("Player detected cast interruption! Reason: %s", reason)
 	
 	match(reason):		
 		Reason.SILENCED, Reason.KICKED, Reason.PARRIED:
@@ -144,17 +140,27 @@ func _on_cast_interrupted(reason: Reason):
 
 		Reason.OTHER:
 			change_state(State.IDLE)
-		
+
 func _on_jumped():
 	if(is_rooted_active):
 		return
 	if current_state == State.CASTING or current_state == State.ATTACKING:
 		emit_signal("cast_interrupted", Reason.OTHER)
 
-	if current_state != State.JUMPING:
-		change_state(State.JUMPING)
-		state_timer = JUMP_DURATION
-		
+	if current_state != BaseEntity.State.JUMPING or \
+		current_state != BaseEntity.State.JUMP_PEAK or \
+		current_state != BaseEntity.State.FALLING:
+		change_state(BaseEntity.State.JUMPING)
+		jump_component.perform_jump()
+
+func _on_jump_peak():
+	if current_state != BaseEntity.State.JUMP_PEAK:
+		change_state(BaseEntity.State.JUMP_PEAK)
+
+func _on_falling():
+	if current_state != BaseEntity.State.FALLING:
+		change_state(BaseEntity.State.FALLING)
+
 func _on_dashed():
 	if(is_rooted_active):
 		return
@@ -337,6 +343,10 @@ func _ready():
 	# BUT `crow_pet.gd` uses `position` relative to parent. If parent is player, it orbits player correctly.
 	add_child(crow_pet)
 
+	jump_component = JumpComponent.new(self)
+	# JumpComponent needs to be able to emit signals from player
+	add_child(jump_component)
+
 
 	# --- SETUP PLAYER CAST BAR ---
 	player_cast_bar = ProgressBar.new()
@@ -368,7 +378,9 @@ func _ready():
 
 	# Connect Internal Signals
 	cast_interrupted.connect(_on_cast_interrupted)
-	jumped.connect(_on_jumped)
+	jump_component.jumped.connect(_on_jumped)
+	jump_component.falling.connect(_on_falling)
+	jump_component.jump_peak.connect(_on_jump_peak)
 	dashed.connect(_on_dashed)
 	struck.connect(_on_struck)
 	slowed.connect(_on_slowed)
@@ -385,17 +397,10 @@ func _exit_tree():
 		CombatManager.unregister_entity(self)
 
 func _process(delta):
-	# 1. Update Timers
-	if is_on_floor_physics:
-		coyote_timer = COYOTE_TIME
-	else:
-		coyote_timer = max(0.0, coyote_timer - delta)
-		
-	jump_buffer_timer = max(0.0, jump_buffer_timer - delta)
+	# 1. Update Jump Component
+	jump_component.update(delta)
 	
-	# Handle buffered jump
-	if jump_buffer_timer > 0.0 and is_on_floor_physics:
-		_perform_jump()
+	state_timer = max(0.0, state_timer - delta)
 
 	# 2. Main State Machine
 	match current_state:
@@ -413,7 +418,7 @@ func _process(delta):
 			process_attacking(delta)
 		State.CASTING:
 			process_casting(delta)
-		State.JUMPING:
+		State.JUMPING, State.JUMP_PEAK, State.FALLING:
 			process_jumping(delta)
 		State.DASHING:
 			process_dashing(delta)
@@ -472,6 +477,7 @@ func process_attacking(delta):
 func process_casting(delta):
 	check_movement_input() # Allow air control
 	check_action_input()
+	update_aim_indicator()
 
 	# --- UI UPDATE ---
 	player_cast_bar.visible = true
@@ -518,11 +524,10 @@ func process_casting_complete(delta):
 
 func process_jumping(delta):
 	check_movement_input() # Allow air control
-	
-	# Only land if we are actually touching the floor AND not moving upwards
-	if is_on_floor_physics and velocity.y >= 0:
-		# is_on_floor_physics = false # Will be set by PhysicsManager when landing
-		change_state(State.IDLE)
+	check_action_input()
+	update_aim_indicator()
+
+	# Logic now handled by jump_component.update()
 
 
 func process_dashing(delta):
@@ -566,7 +571,7 @@ func check_movement_input():
 	# Apply state modifiers (ONLY to horizontal speed)
 	if current_state == State.DASHING:
 		current_horizontal_speed *= SPEED_WHILE_DASHING
-	elif current_state == State.JUMPING:
+	elif current_state == State.JUMPING or current_state == State.JUMP_PEAK or current_state == State.FALLING:
 		current_horizontal_speed *= SPEED_WHILE_JUMPING
 		
 	# Apply slow
@@ -599,20 +604,7 @@ func _on_input_steer(dir: Vector2):
 	input_steer_target = dir
 
 func _on_jump_input():
-	if is_on_floor_physics or coyote_timer > 0.0:
-		if current_state != State.JUMPING and current_state != State.DASHING:
-			_perform_jump()
-	else:
-		jump_buffer_timer = JUMP_BUFFER
-
-func _perform_jump():
-	velocity.y = -800.0 # Jump Impulse
-	is_on_floor_physics = false
-	coyote_timer = 0.0
-	jump_buffer_timer = 0.0
-	state_timer = JUMP_DURATION
-	change_state(State.JUMPING)
-	emit_signal("jumped")
+	jump_component.handle_jump_input()
 
 # instants:
 func _on_input_action(action_name: String, data: Dictionary):
@@ -624,7 +616,7 @@ func _on_input_action(action_name: String, data: Dictionary):
 			_on_jump_input()
 		
 		"dash":
-			if current_state != State.JUMPING and current_state != State.DASHING:
+			if current_state != State.JUMPING and current_state != State.JUMP_PEAK and current_state != State.FALLING and current_state != State.DASHING:
 				emit_signal("dashed")
 
 		# instants:
@@ -872,7 +864,7 @@ func get_active_sprite() -> Sprite2D:
 		State.ATTACKING_2: return attack2
 		State.ATTACKING_3: return attack3
 		State.RUNNING: return running
-		State.JUMPING: return jumping
+		State.JUMPING, State.JUMP_PEAK, State.FALLING: return jumping
 		State.DASHING: return dash
 		State.CASTING: return casting
 		State.CASTING_COMPLETE: return casting_success
@@ -913,8 +905,12 @@ func update_animation(_delta):
 			var t = Time.get_ticks_msec() / 100.0 
 			running.frame = (int(t)) % running.hframes
 		State.JUMPING:
-			var t = Time.get_ticks_msec() / 70.0 
-			jumping.frame = (int(t)) % jumping.hframes
+			# Ascending frames
+			jumping.frame = 1
+		State.JUMP_PEAK:
+			jumping.frame = 5
+		State.FALLING:
+			jumping.frame = 9
 		State.DASHING:
 			var t = Time.get_ticks_msec() / 50.0 
 			dash.frame = (int(t)) % dash.hframes

@@ -105,6 +105,8 @@ func _simulate_character_physics(char_node, delta):
 		return
 		
 	var gravity = gravity_player
+	if "gravity_multiplier" in char_node:
+		gravity *= char_node.gravity_multiplier
 	var feet_offset = 32.0 # Fallback
 	if char_node.has_method("get_feet_offset"):
 		feet_offset = char_node.get_feet_offset()
