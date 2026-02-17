@@ -402,7 +402,6 @@ func _process(delta):
 	# 1. Update Jump Component
 	jump_component.update(delta)
 	
-	state_timer = max(0.0, state_timer - delta)
 
 	# 2. Main State Machine
 	match current_state:
@@ -524,7 +523,7 @@ func process_casting_complete(delta):
 	if state_timer <= 0:
 		change_state(State.IDLE)
 
-func process_jumping(delta):
+func process_jumping(_delta):
 	check_movement_input() # Allow air control
 	check_action_input()
 	update_aim_indicator()
