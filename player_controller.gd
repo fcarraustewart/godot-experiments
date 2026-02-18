@@ -79,12 +79,10 @@ signal slowed
 signal rooted
 
 func kicked():
-	if current_state == State.CASTING:
-		interruption_component.interrupt(BaseEntity.Reason.KICKED)
+	interruption_component.interrupt(BaseEntity.Reason.KICKED)
 
 func silenced():
-	if current_state == State.CASTING:
-		interruption_component.interrupt(BaseEntity.Reason.SILENCED)
+	interruption_component.interrupt(BaseEntity.Reason.SILENCED)
 
 func parried():
 	if current_state == State.ATTACKING:
@@ -98,7 +96,8 @@ func stun(duration: float):
 	state_timer = duration
 
 func hit():
-	interruption_component.handle_hit(current_state, casting_component.state_timer, casting_component.casting_time)
+	emit_signal("struck")
+
 func apply_slow(duration: int, slow_amount: float):
 	emit_signal("slowed", duration, slow_amount)
 func apply_root(duration: float):
@@ -119,13 +118,12 @@ func _on_interruption(reason: BaseEntity.Reason):
 			change_state(State.STUNNED)
 		
 		BaseEntity.Reason.HIT:
-			# Delay calculation is already handled inside handle_hit, 
-			# but we need to apply it specifically to the casting timer
-			# Actually, let's keep it simple: handle_hit is called from hit()
-			# This _on_interruption is called from _on_struck()
-			# We'll calculate the delay here using the component's state.
-			var delay = interruption_component.calculate_hit_interruption(casting_component.state_timer, casting_component.casting_time)
-			casting_component.state_timer += delay
+			if current_state == BaseEntity.State.CASTING:
+				var knockback_delay = interruption_component.handle_hit(current_state, state_timer, casting_component.casting_time)
+				state_timer = knockback_delay
+				if knockback_delay < 0:
+					print("[player_controller] Knockback applied with delay %f seconds!" % -knockback_delay)
+					velocity += (position - get_node("/root/Main/Enemy").position).normalized() * 200.0 # Simple knockback away from enemy
 
 		BaseEntity.Reason.OTHER:
 			change_state(State.IDLE)
@@ -163,10 +161,8 @@ func _on_dashed():
 			change_state(State.DASHING)
 
 func _on_struck():
-	if current_state != State.JUMPING and current_state != State.DASHING:
-		if current_state == State.CASTING:
-			interruption_component.interrupt(BaseEntity.Reason.HIT)
-		interruption_component.clear_hit_count()
+	_on_interruption(BaseEntity.Reason.HIT)
+	pass # handles knockback cast interrupt_component for more centralized logic
 
 func _on_rooted(duration: float):
 	if is_rooted_active:
@@ -452,14 +448,12 @@ func _physics_process(delta):
 
 func _process(delta):
 	# 2. Main State Machine
-
-	casting_component.update(delta)
 	match current_state:
 		State.IDLE:
 			process_idle(delta)
 		State.STATIONARY:
 			process_idle(delta)
-		State.RUNNING:
+		State.RUNNING, State.LANDING:
 			process_running(delta)
 		State.ATTACKING, State.ATTACKING_2, State.ATTACKING_3:
 			process_attacking(delta)
@@ -508,6 +502,13 @@ func process_running(_delta):
 	check_action_input()
 	update_aim_indicator()
 
+	if current_state == State.LANDING:
+		# After landing, we want to transition to idle or running based on input
+		if input_throttle != 0:
+			change_state(State.RUNNING)
+		else:
+			change_state(State.IDLE)
+
 func process_hurt(delta):
 	check_movement_input()
 	check_action_input()
@@ -531,6 +532,8 @@ func process_casting(delta):
 	player_cast_bar.max_value = casting_component.casting_time
 	player_cast_bar.value = casting_component.state_timer
 	# -----------------
+
+	casting_component.update(delta)
 
 func process_casting_complete(delta):
 	check_movement_input() # Allow air control
@@ -568,6 +571,9 @@ func process_interrupted(delta):
 	player_cast_bar.visible = true
 	player_cast_bar.value = float(state_timer) / INTERRUPTED_DURATION * player_cast_bar.max_value
 	
+	# interruption_component. update / process
+
+
 	# Maybe flash yellow/interrupted effect
 	if state_timer <= 0:
 		change_state(State.IDLE)
@@ -778,7 +784,7 @@ func reset_animations():
 func change_state(new_state):
 	if current_state == new_state: return
 			
-	if current_state == State.ATTACKING and new_state != State.IDLE:
+	if current_state == State.ATTACKING and new_state != State.IDLE: # jumping while attacking fix
 		return
 
 	# Exit Logic
@@ -800,7 +806,7 @@ func change_state(new_state):
 
 	if current_state == State.INTERRUPTED:
 		player_cast_bar.modulate = Color.WHITE
-		player_cast_bar.visible = false
+		player_cast_bar.visible = true
 		if state_timer > 0:
 			return # Can't exit interrupted until timer done
 
@@ -853,7 +859,7 @@ func get_active_sprite() -> Sprite2D:
 		State.ATTACKING: return attack1
 		State.ATTACKING_2: return attack2
 		State.ATTACKING_3: return attack3
-		State.RUNNING: return running
+		State.RUNNING, State.LANDING: return running
 		State.JUMPING, State.JUMP_PEAK, State.FALLING: return jumping
 		State.DASHING: return dash
 		State.CASTING: return casting
