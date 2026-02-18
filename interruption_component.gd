@@ -14,7 +14,7 @@ func _on_cast_started(spell_id: String, duration: float):
 
 func _init(p: BaseEntity):
 	parent = p
-	p.casting_component.connect("cast_started", self, "_on_cast_started")
+	p.casting_component.connect("cast_started", _on_cast_started)
 
 func handle_hit(current_state: BaseEntity.State, state_timer: float, casting_time: float) -> float:
 	if current_state == BaseEntity.State.CASTING:
