@@ -838,9 +838,10 @@ func _ready():
 		camera.setup(player)
 		print("[ShowSpectrum] Camera setup complete.")
 		
-		# Connect Player Signals for FX
-		player.cast_start.connect(_on_player_cast_start)
-		player.cast_finished.connect(_on_player_cast_finished)
+		if player.casting_component:
+			# Connect Player Signals for FX
+			player.casting_component.cast_started.connect(_on_player_cast_start)
+			player.casting_component.cast_done.connect(_on_player_cast_finished)
 	else:
 		print("[ShowSpectrum] WARNING: Camera2D node not found!")
 	# -----------------
@@ -908,12 +909,12 @@ func _on_player_cast_start(duration):
 	# if spell_id == "sword_attack":
 	cam.add_shake(12.0)
 	cam.set_zoom_target(1.15) # Zoom in slightly
-	if player.active_skill_ctrl:
+	if player.casting_component.active_skill_ctrl:
 		var spell_id = ""
-		if player.active_skill_ctrl.has_method("get_spell_id"):
-			spell_id = player.active_skill_ctrl.get_spell_id()
+		if player.casting_component.active_skill_ctrl.has_method("get_spell_id"):
+			spell_id = player.casting_component.active_skill_ctrl.get_spell_id()
 		else:
-			print("[ShowSpectrum] WARNING: active_skill_ctrl has no get_spell_id method.")
+			print("[ShowSpectrum] WARNING: casting_component.active_skill_ctrl has no get_spell_id method.")
 
 		if spell_id == "chain_lightning":
 			cam.add_shake(12.0)

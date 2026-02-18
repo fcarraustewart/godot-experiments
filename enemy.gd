@@ -20,6 +20,14 @@ func _ready():
 	sprite.hframes = 3
 	add_child(sprite)
 
+	# --- COLLISION ---
+	var col = CollisionShape2D.new()
+	var shape = CapsuleShape2D.new()
+	shape.radius = 32.0
+	shape.height = 192.0 # Matches feet_offset 96
+	col.shape = shape
+	add_child(col)
+
 func is_enemy():
 	return true
 

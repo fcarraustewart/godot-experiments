@@ -1,16 +1,19 @@
-extends Node2D
+extends CharacterBody2D
 
 class_name BaseEntity
 
 # --- SHARED STATE ---
-enum State { IDLE, STATIONARY, RUNNING, ATTACKING, ATTACKING_2, ATTACKING_3, CASTING, CASTING_COMPLETE, JUMPING, DASHING, STUNNED, INTERRUPTED, HURT, JUMP_PEAK, FALLING }
+enum Reason { SILENCED, STUNNED, KICKED, PARRIED, HIT, OUT_OF_RANGE, FAILED, OTHER }
+enum State { IDLE, STATIONARY, RUNNING, ATTACKING, ATTACKING_2, ATTACKING_3, CASTING, CASTING_COMPLETE, JUMPING, DASHING, STUNNED, INTERRUPTED, HURT, JUMP_PEAK, FALLING, LANDING }
 var current_state: State = State.IDLE
 var state_timer: float = 0.0
 
 # --- SHARED DATA ---
-var velocity: Vector2 = Vector2.ZERO
+# velocity is now built-in to CharacterBody2D
 var facing_right: bool = true
-var is_on_floor_physics: bool = false
+# is_on_floor_physics replaced by is_on_floor()
+@export var gravity_multiplier: float = 1.0
+@export var is_rooted_active: bool = false
 var external_lighting_modulate: Color = Color.WHITE
 var target_glow_active: bool = false
 
@@ -65,3 +68,4 @@ func change_state(new_state: State):
 
 func get_active_sprite() -> Sprite2D:
 	return null # Overridden by children
+

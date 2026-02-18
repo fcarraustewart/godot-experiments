@@ -85,6 +85,15 @@ func _ready():
 		body_sim  = PhysicsManager.register_second_order("Death_Body_" + str(get_instance_id()), start_pos + body_target_offset, joint_f, joint_z, joint_r)
 		rh_sim    = PhysicsManager.register_second_order("Death_RH_" + str(get_instance_id()), start_pos + rh_target_offset, joint_f, joint_z, joint_r)
 		lh_sim    = PhysicsManager.register_second_order("Death_LH_" + str(get_instance_id()), start_pos + lh_target_offset, joint_f, joint_z, joint_r)
+	
+	# --- COLLISION ---
+	var col = CollisionShape2D.new()
+	var shape = CapsuleShape2D.new()
+	shape.radius = 32.0
+	shape.height = 192.0 # Matches feet_offset 96
+	col.shape = shape
+	add_child(col)
+
 	print("[DeathController] _ready finished. Parts and Sim IDs created.")
 
 func _setup_part(path: String) -> Sprite2D:
@@ -104,14 +113,15 @@ func _process(delta):
 		var players = get_tree().get_nodes_in_group("Player")
 		if players.size() > 0:
 			target_player = players[0]
-			print("[DeathController] Found player in group: ", target_player.name)
+			# print("[DeathController] Found player in group: ", target_player.name)
 		elif Engine.get_frames_drawn() % 60 == 0:
-			print("[DeathController] WARNING: No player found in 'Player' group.")
+			pass
+			# print("[DeathController] WARNING: No player found in 'Player' group.")
 			
 	_process_ai(delta)
 	
 	if current_state == State.CASTING:
-		velocity = Vector2.ZERO
+		velocity.x = 0
 		if state_timer <= 0:
 			# Range Check at end of cast
 			if is_instance_valid(target_player):
@@ -162,11 +172,11 @@ func _process_ai(delta):
 		var dist = global_position.distance_to(target_player.global_position)
 		if dist < AGGRO_RANGE:
 			if current_state != State.RUNNING:
-				print("[DeathAI] Aggro! Chasing player.")
+				# print("[DeathAI] Aggro! Chasing player.")
 				change_state(State.RUNNING)
 				
 			var dir = (target_player.global_position - global_position).normalized()
-			velocity = dir * CHASE_SPEED
+			velocity.x = dir.x * CHASE_SPEED
 			facing_right = dir.x > 0
 				
 			# Attempt to cast Death Chains while chasing
@@ -190,7 +200,7 @@ func _process_ai(delta):
 			wander_dir = Vector2.ZERO
 			change_state(State.IDLE)
 			
-	velocity = wander_dir * WANDER_SPEED
+	velocity.x = wander_dir.x * WANDER_SPEED
 	if wander_dir.x != 0:
 		facing_right = wander_dir.x > 0
 

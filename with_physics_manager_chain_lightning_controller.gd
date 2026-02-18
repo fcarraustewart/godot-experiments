@@ -80,7 +80,7 @@ func cast(casting_elapsed_time: float, _from_above: bool = false):
 		cast_timer = 0.0
 		interrupt_charging()
 
-func try_cast_chain_lightning(source: Vector2):
+func try_cast(source: Vector2):
 	if chain_cooldown <= 0 and not is_casting:
 		# Use Global CombatManager for targeting, exclude player (parent)
 		var target = CombatManager.get_nearest_target(source, CHAIN_RANGE, get_parent())

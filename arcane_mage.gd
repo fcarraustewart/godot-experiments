@@ -51,6 +51,14 @@ func _ready():
 	missile_ctrl.name = "MissileController" # Name it for easy access
 	add_child(missile_ctrl)
 
+	# --- COLLISION ---
+	var col = CollisionShape2D.new()
+	var shape = CapsuleShape2D.new()
+	shape.radius = 12.0
+	shape.height = 32.0
+	col.shape = shape
+	add_child(col)
+
 func is_enemy():
 	return true
 
@@ -68,17 +76,17 @@ func _process(delta):
 			_process_movement(delta)
 			_check_attack_conditions()
 		State.CASTING:
-			velocity = Vector2.ZERO
+			velocity.x = 0
 			_process_casting_anim(delta)
 		State.CASTING_COMPLETE:
-			velocity = Vector2.ZERO
+			velocity.x = 0
 			_process_cast_success_anim(delta)
 		State.HURT:
-			velocity = Vector2.ZERO
+			velocity.x = 0
 			if state_timer <= 0:
 				change_state(State.IDLE)
 		State.INTERRUPTED:
-			velocity = Vector2.ZERO
+			velocity.x = 0
 			_process_interrupted(delta)
 				
 	# Apply animation frame
@@ -107,11 +115,11 @@ func _process_movement(delta):
 		if dist > CAST_RANGE * 0.8:
 			# Chase
 			var dir = (target.global_position - global_position).normalized()
-			velocity = dir * CHASE_SPEED
+			velocity.x = dir.x * CHASE_SPEED
 			change_state(State.RUNNING)
 		else:
 			# In range, maybe idle
-			velocity = Vector2.ZERO
+			velocity.x = 0
 			change_state(State.IDLE)
 	else:
 		# Wander

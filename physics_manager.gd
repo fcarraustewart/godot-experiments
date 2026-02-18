@@ -50,7 +50,9 @@ func register_soft_body(id: String, points: Array, constraint_dist: float):
 
 func _physics_process(delta):
 	for body in simulated_objects:
-		if body is Node2D:
+		if body is CharacterBody2D:
+			_simulate_character_physics(body, delta)
+		elif body is Node2D:
 			_simulate_character_physics(body, delta)
 		elif body is Dictionary:
 			match body.type:
@@ -101,6 +103,14 @@ func _simulate_second_order(sim, delta):
 		sim.xd = sim.xd + step * (target_pos + sim.k3 * y_dot - sim.xp - sim.k1 * sim.xd) / sim.k2
 
 func _simulate_character_physics(char_node, delta):
+	if char_node is CharacterBody2D:
+		# Default movement and gravity for entities that became CharacterBody2D
+		if not char_node.is_on_floor():
+			var velocity = char_node.get("velocity") if "velocity" in char_node else Vector2.ZERO
+			var gravity_multiplier = char_node.get("gravity_multiplier") if "gravity_multiplier" in char_node else 1.0
+			velocity.y += gravity_player.y * gravity_multiplier * delta
+		char_node.move_and_slide()
+		return
 	if not char_node.has_method("apply_physics"):
 		return
 		
@@ -115,10 +125,10 @@ func _simulate_character_physics(char_node, delta):
 	var velocity = char_node.get("velocity") if "velocity" in char_node else Vector2.ZERO
 	
 	# 1. Platform & Floor Detection
-	var current_floor_y = DEFAULT_FLOOR_Y # Always reset for this specific character
+	var current_floor_y = floor_y # Always reset for this specific character
 	
 	# Only check floor/platforms if we are moving down or stationary at apex
-	if velocity.y >= 0:
+	if velocity.y != 0:
 		# Check Platforms first
 		for plat in all_platforms:
 			# plat is a Rect2
@@ -141,16 +151,15 @@ func _simulate_character_physics(char_node, delta):
 		velocity.y = 0
 		char_node.position.y = current_floor_y - feet_offset
 		if char_node.is_in_group("Player"):
-			floor_y = current_floor_y # Update global floor for reflections
+			print("[PhysicsManager] Landed on floor/platform at y =", current_floor_y)
+			floor_y = current_floor_y
 
-		if(Engine.get_process_frames() % 60 == 0):
-			print("Landed on floor/platform at y =", current_floor_y)
 	else:
 		# 2. Apply Gravity if strictly in the air or moving upwards
 		velocity += gravity * delta
 
-		if(Engine.get_process_frames() % 30 == 0):
-			print("Velocity after gravity:", velocity)
+		if(Engine.get_process_frames() % 360 == 0):
+			print("[PhysicsManager] Velocity after gravity:", velocity)
 	
 	# 3. Integration (Move the node)
 	char_node.position += velocity * delta

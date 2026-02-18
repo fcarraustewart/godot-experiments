@@ -24,12 +24,9 @@ const SUCCESS_TEXTURES = {
 	0: "res://art/SuccessfulCastingAnims.png"
 }
 
-enum Reason { SILENCED, STUNNED, KICKED, PARRIED, HIT, OTHER }
-var casting_time = 10.0
-var hit_count: int = 0
-var diminishing_return = 0.0
-
 # --- COMPONENTS ---
+var casting_component: CastingComponent
+var interruption_component: InterruptionComponent
 var sprite: Sprite2D
 var idle: Sprite2D
 var idle_timer: float = 0.0
@@ -43,16 +40,15 @@ var attack1: Sprite2D
 var attack2: Sprite2D
 var attack3: Sprite2D
 var cleave_count = 0
-var chain_lightning_ctrl
-var fire_chains_ctrl
 var meteor_strike_ctrl
 var cleave_swarm_ctrl
+var chain_lightning_ctrl
+var fire_chains_ctrl
 var from_above = false
 
 var axe_ctrl # Procedural axe controller
 var crow_pet
 var player_cast_bar: ProgressBar
-var active_skill_ctrl = null
 var aim_indicator: Node2D
 var aim_arrow_line: Line2D
 
@@ -62,15 +58,11 @@ const MAX_CHARGE = 130.0
 signal charge_changed(new_val)
 
 # --- DATA ---
-var casting_direction = Vector2.ZERO
 # Physics simulation
-@export var is_rooted_active = false
 var is_slowed_active = false
 var active_slow_factor = 1.0
-var last_cast_success = true
 
 var jump_component: JumpComponent
-@export var gravity_multiplier: float = 1.0
 
 
 # --- INPUT STATE (Populated by KeybindListener) ---
@@ -81,68 +73,65 @@ var is_mouse_steering = false
 # --- REFS ---
 var game_node: Node2D # Reference to main world for spawning effects if needed
 
-signal cast_start(duration)
-signal cast_finished
 signal dashed
-
 signal struck
 signal slowed
 signal rooted
-signal cast_interrupted
 
 func kicked():
 	if current_state == State.CASTING:
-		emit_signal("cast_interrupted", Reason.KICKED)
+		interruption_component.interrupt(BaseEntity.Reason.KICKED)
 
 func silenced():
 	if current_state == State.CASTING:
-		emit_signal("cast_interrupted", Reason.SILENCED)
+		interruption_component.interrupt(BaseEntity.Reason.SILENCED)
 
 func parried():
 	if current_state == State.ATTACKING:
-		emit_signal("cast_interrupted", Reason.PARRIED)
+		interruption_component.interrupt(BaseEntity.Reason.PARRIED)
 
 func stunned():
-	emit_signal("cast_interrupted", Reason.STUNNED)
+	interruption_component.interrupt(BaseEntity.Reason.STUNNED)
 
 func stun(duration: float):
-	emit_signal("cast_interrupted", Reason.STUNNED)
+	interruption_component.interrupt(BaseEntity.Reason.STUNNED)
 	state_timer = duration
 
 func hit():
-	if(not current_state == State.DASHING):
-		hit_count += 1
-		emit_signal("struck")
+	interruption_component.handle_hit(current_state, casting_component.state_timer, casting_component.casting_time)
 func apply_slow(duration: int, slow_amount: float):
 	emit_signal("slowed", duration, slow_amount)
 func apply_root(duration: float):
 	emit_signal("rooted", duration)
 
-func _on_cast_interrupted(reason: Reason):
-	print("Player detected cast interruption! Reason: %s", reason)
+func _on_interruption(reason: BaseEntity.Reason):
+	print("[player_controller] detected cast interruption! Reason: %s" % BaseEntity.Reason.keys()[reason])
 	
 	match(reason):		
-		Reason.SILENCED, Reason.KICKED, Reason.PARRIED:
-			chain_lightning_ctrl.cooldown = chain_lightning_ctrl.CHAIN_COOLDOWN_MAX * 4.5
+		BaseEntity.Reason.SILENCED, BaseEntity.Reason.KICKED, BaseEntity.Reason.PARRIED:
+			# legacy access, maybe move this too?
+			if(casting_component.active_skill_ctrl.get_spell_id() == "chain_lightning"):
+				casting_component.active_skill_ctrl.cooldown = casting_component.active_skill_ctrl.CHAIN_COOLDOWN_MAX * 4.5
 			state_timer = INTERRUPTED_DURATION
 			change_state(State.INTERRUPTED)
 			
-		Reason.STUNNED:
+		BaseEntity.Reason.STUNNED:
 			change_state(State.STUNNED)
 		
-		Reason.HIT:
-			print("Player hit during cast. Adding time 0.01!. DR = ", diminishing_return)
-			if(state_timer < casting_time - 0.3):
-				diminishing_return += 1 # Each hit adds less time, caps at ~5 hits for 1 second
-				if(diminishing_return < 3.0):
-					state_timer -= 0.01 * diminishing_return # brief draw back on hit
+		BaseEntity.Reason.HIT:
+			# Delay calculation is already handled inside handle_hit, 
+			# but we need to apply it specifically to the casting timer
+			# Actually, let's keep it simple: handle_hit is called from hit()
+			# This _on_interruption is called from _on_struck()
+			# We'll calculate the delay here using the component's state.
+			var delay = interruption_component.calculate_hit_interruption(casting_component.state_timer, casting_component.casting_time)
+			casting_component.state_timer += delay
 
-
-		Reason.OTHER:
+		BaseEntity.Reason.OTHER:
 			change_state(State.IDLE)
 
 func _on_jumped():
-	print("Player jumped!")
+	print("[player_controller]Player jumped!")
 	if(is_rooted_active):
 		return
 	if current_state == State.CASTING or current_state == State.ATTACKING:
@@ -154,12 +143,12 @@ func _on_jumped():
 		change_state(BaseEntity.State.JUMPING)
 
 func _on_jump_peak():
-	print("Player reached jump peak!")
+	print("[player_controller]Player reached jump peak!")
 	if current_state != BaseEntity.State.JUMP_PEAK:
 		change_state(BaseEntity.State.JUMP_PEAK)
 
 func _on_falling():
-	print("Player is falling!")
+	print("[player_controller]Player is falling!")
 	if current_state != BaseEntity.State.FALLING:
 		change_state(BaseEntity.State.FALLING)
 
@@ -176,8 +165,8 @@ func _on_dashed():
 func _on_struck():
 	if current_state != State.JUMPING and current_state != State.DASHING:
 		if current_state == State.CASTING:
-			emit_signal("cast_interrupted", Reason.HIT)
-		hit_count = 0
+			interruption_component.interrupt(BaseEntity.Reason.HIT)
+		interruption_component.clear_hit_count()
 
 func _on_rooted(duration: float):
 	if is_rooted_active:
@@ -185,12 +174,12 @@ func _on_rooted(duration: float):
 	is_rooted_active = true
 	
 	var time_elapsed = 0.0
-	print("Applying root for duration %f", duration)
+	print("[player_controller]Applying root for duration %f", duration)
 	while time_elapsed <= duration:
 		# velocity = Vector2.ZERO # Handled in check_movement_input
 		await get_tree().create_timer(0.01).timeout
 		time_elapsed += 0.01
-	print("Root ended")
+	print("[player_controller]Root ended")
 	is_rooted_active = false
 
 
@@ -201,17 +190,15 @@ func _on_slowed(duration: int, slow_amount: float):
 	active_slow_factor = slow_amount
 
 	var time_elapsed = 0.0
-	print("Applying slow of amount %f for duration %d", slow_amount, duration)
+	print("[player_controller]Applying slow of amount %f for duration %d", slow_amount, duration)
 	while time_elapsed <= duration:
 		# velocity *= slow_amount # Handled in check_movement_input
 		time_elapsed += 0.01
 		await get_tree().create_timer(0.01).timeout
 	
-	print("Slow ended")
+	print("[player_controller]Slow ended")
 	active_slow_factor = 1.0
 	is_slowed_active = false
-	
-
 	
 func _ready():
 	super._ready()
@@ -324,15 +311,19 @@ func _ready():
 	cleave_swarm_ctrl = load("res://cleave_swarm_controller.gd").new()
 	cleave_swarm_ctrl.game_node = game_node
 	add_child(cleave_swarm_ctrl)
+	
 	chain_lightning_ctrl = load("res://with_physics_manager_chain_lightning_controller.gd").new()
+	chain_lightning_ctrl.name = "ChainLightningController"
 	chain_lightning_ctrl.game_node = game_node # Pass main node for enemy access
 	add_child(chain_lightning_ctrl)
 	
 	fire_chains_ctrl = load("res://with_physics_manager_fire_chains_controller.gd").new()
+	fire_chains_ctrl.name = "FireChainsController"
 	fire_chains_ctrl.game_node = game_node
 	add_child(fire_chains_ctrl)
 	
-	meteor_strike_ctrl = load("res://meteor_strike_controller.gd").new()
+	var meteor_strike_ctrl = load("res://meteor_strike_controller.gd").new()
+	meteor_strike_ctrl.name = "MeteorStrikeController"
 	meteor_strike_ctrl.game_node = game_node
 	add_child(meteor_strike_ctrl)
 	
@@ -348,6 +339,21 @@ func _ready():
 	jump_component = JumpComponent.new(self)
 	# JumpComponent needs to be able to emit signals from player
 	add_child(jump_component)
+
+	casting_component = CastingComponent.new(self)
+	add_child(casting_component)
+	
+	interruption_component = InterruptionComponent.new(self)
+	add_child(interruption_component)
+
+	# --- SETUP COLLISION ---
+	var col = CollisionShape2D.new()
+	var shape = CapsuleShape2D.new()
+	shape.radius = 16.0
+	shape.height = 64.0 # Matches 32.0 feet_offset
+	col.shape = shape
+	col.position = Vector2(0, 0) # Centered
+	add_child(col)
 
 
 	# --- SETUP PLAYER CAST BAR ---
@@ -379,10 +385,37 @@ func _ready():
 	add_child(aim_indicator)
 
 	# Connect Internal Signals
-	cast_interrupted.connect(_on_cast_interrupted)
+	interruption_component.interrupted.connect(_on_interruption)
+	
+	casting_component.cast_started.connect(func(_id, dur): 
+		print("[player_controller] recvd cast_started, emit -> cast_started.")
+		change_state(State.CASTING)
+	)
+	casting_component.cast_done.connect(func():
+		player_cast_bar.visible = false
+		print("[player_controller] recvd cast_done.")
+		change_state(State.IDLE)
+	)
+	casting_component.cast_success.connect(func(spell_id):
+		print("[player_controller] recvd cast_success!")
+		var spell_data = DataManager.get_spell(spell_id)
+		if spell_data:
+			if spell_data.has("charge_gen"): add_charge(spell_data.charge_gen)
+			if spell_data.has("charge_cost"): consume_charge(spell_data.charge_cost)
+		
+		state_timer = 0.5 # Animation lock
+		player_cast_bar.visible = false
+		change_state(State.CASTING_COMPLETE)
+	)
+	casting_component.cast_failed.connect(func(_reason):
+		print("[player_controller] recvd cast_failed.")
+		change_state(State.IDLE)
+	)
+
 	jump_component.jumped.connect(_on_jumped)
 	jump_component.falling.connect(_on_falling)
 	jump_component.jump_peak.connect(_on_jump_peak)
+
 	dashed.connect(_on_dashed)
 	struck.connect(_on_struck)
 	slowed.connect(_on_slowed)
@@ -398,12 +431,29 @@ func _exit_tree():
 	if CombatManager:
 		CombatManager.unregister_entity(self)
 
-func _process(delta):
-	# 1. Update Jump Component
-	jump_component.update(delta)
-	
+# --- PHYSICS ---
+func _physics_process(delta):
+	# 1. Apply Gravity (Standard Godot approach)
+	if not is_on_floor():
+		var gravity_val = ProjectSettings.get_setting("physics/2d/default_gravity")
+		if gravity_val == 0: gravity_val = 980 # Fallback
+		
+		# In this specific project, PhysicsManager had 800
+		gravity_val = 800.0 
+		
+		velocity.y += gravity_val * gravity_multiplier * delta
 
+	# 2. Update Jump Component - Handles buffers and signals
+	jump_component.update(delta) 
+	
+	# 3. Apply Movement
+	# We use move_and_slide for smooth platforming
+	move_and_slide()
+
+func _process(delta):
 	# 2. Main State Machine
+
+	casting_component.update(delta)
 	match current_state:
 		State.IDLE:
 			process_idle(delta)
@@ -411,17 +461,13 @@ func _process(delta):
 			process_idle(delta)
 		State.RUNNING:
 			process_running(delta)
-		State.ATTACKING:
-			process_attacking(delta)
-		State.ATTACKING_2:
-			process_attacking(delta)
-		State.ATTACKING_3:
+		State.ATTACKING, State.ATTACKING_2, State.ATTACKING_3:
 			process_attacking(delta)
 		State.CASTING:
 			process_casting(delta)
 		State.JUMPING, State.JUMP_PEAK, State.FALLING:
 			process_jumping(delta)
-		State.DASHING:
+		State.DASHING, State.LANDING:
 			process_dashing(delta)
 		State.STUNNED:
 			process_stunned(delta)
@@ -470,7 +516,7 @@ func process_hurt(delta):
 		change_state(State.IDLE)
 
 func process_attacking(delta):
-	velocity = Vector2.ZERO # Root while attacking? Or allow slide? Let's root for impact.
+	velocity.x = 0 # Root while attacking? Or allow slide? Let's root for impact.
 	state_timer -= delta
 	if state_timer <= 0:
 		change_state(State.IDLE)
@@ -482,46 +528,17 @@ func process_casting(delta):
 
 	# --- UI UPDATE ---
 	player_cast_bar.visible = true
-	player_cast_bar.max_value = casting_time
-	player_cast_bar.value = state_timer
+	player_cast_bar.max_value = casting_component.casting_time
+	player_cast_bar.value = casting_component.state_timer
 	# -----------------
-	# Casting logic
-	state_timer += delta
-
-	if active_skill_ctrl:
-		from_above = !from_above
-		active_skill_ctrl.cast(state_timer, from_above)
-
-	if state_timer >= casting_time and (not active_skill_ctrl or not active_skill_ctrl.is_casting):
-		if last_cast_success:
-			# Successful Cast! 
-			# Handle Charge Generation & Consumption
-			var spell_data = DataManager.get_spell(active_skill_ctrl.get_spell_id() if active_skill_ctrl.has_method("get_spell_id") else "")
-			if spell_data:
-				if spell_data.has("charge_gen"):
-					add_charge(spell_data.charge_gen)
-				if spell_data.has("charge_cost"):
-					consume_charge(spell_data.charge_cost)
-
-			state_timer = 0.5 # Animation lock for 'SuccessfulCasting'
-			player_cast_bar.visible = false
-			change_state(State.CASTING_COMPLETE)
-		else:
-			# Failed or interrupted interaction
-			change_state(State.IDLE)
-		return
 
 func process_casting_complete(delta):
 	check_movement_input() # Allow air control
 	check_action_input()
 	update_aim_indicator()
 
-	# Casting logic handled by controllers usually, but here we enforce state
-	# Skills might finish casting and call back, or we poll
-	# sprite.modulate = Color(1.5, 1.5, 1.9) # Slight blue tint while casting
-	state_timer -= delta
-	if state_timer <= 0:
-		change_state(State.IDLE)
+	if casting_component.handle_success_animation(delta):
+		state_timer = 0.0 # Just in case
 
 func process_jumping(_delta):
 	check_movement_input() # Allow air control
@@ -605,7 +622,8 @@ func _on_input_steer(dir: Vector2):
 	input_steer_target = dir
 
 func _on_jump_input():
-	jump_component.handle_jump_input()
+	if jump_component: 
+		jump_component.handle_jump_input()
 
 # instants:
 func _on_input_action(action_name: String, data: Dictionary):
@@ -625,7 +643,8 @@ func _on_input_action(action_name: String, data: Dictionary):
 			if current_state != State.ATTACKING:
 				change_state(State.ATTACKING)
 				state_timer = ATTACK_DURATION
-				emit_signal("cast_start", ATTACK_DURATION)
+				print("[player_controller] Start Attack.")
+				casting_component.emit_signal("cast_started", ATTACK_DURATION)
 				if is_instance_valid(axe_ctrl):
 					axe_ctrl.start_attack()
 
@@ -638,64 +657,32 @@ func _on_input_action(action_name: String, data: Dictionary):
 				cleave_count += 1
 				var type = 1 if cleave_count % 2 == 1 else 2
 				change_state(State.ATTACKING_2 if type == 1 else State.ATTACKING_3)
-				print("cast", type)
 				state_timer = ATTACK_DURATION * 2
-				emit_signal("cast_start", ATTACK_DURATION)
+				casting_component.emit_signal("cast_started", ATTACK_DURATION)
 				if is_instance_valid(cleave_swarm_ctrl):
 					cleave_swarm_ctrl.cast_cleave(type)
 	
 		"fire_chains":
-			_try_start_cast(fire_chains_ctrl, "fire_chains")
+			var ctrl = get_node_or_null("FireChainsController") # Assuming it's a child added in _ready
+			casting_component.try_start_cast(ctrl, "fire_chains", global_charge)
 		
 		# casted
 		"chain_lightning":
-			if current_state != State.JUMPING and current_state != State.DASHING:
-				_try_start_cast(chain_lightning_ctrl, "chain_lightning")
+			if current_state != State.JUMPING and \
+			current_state != State.DASHING and \
+			current_state != State.JUMP_PEAK and \
+			current_state != State.FALLING:
+				var ctrl = get_node_or_null("ChainLightningController")
+				casting_component.try_start_cast(ctrl, "chain_lightning", global_charge)
 		"meteor_strike":
-			if current_state != State.JUMPING and current_state != State.DASHING:
-				_try_start_cast(meteor_strike_ctrl, "meteor_strike")
+			if current_state != State.JUMPING and \
+			current_state != State.DASHING and \
+			current_state != State.JUMP_PEAK and \
+			current_state != State.FALLING:
+				var ctrl = get_node_or_null("MeteorStrikeController")
+				casting_component.try_start_cast(ctrl, "meteor_strike", global_charge)
 
-func _try_start_cast(ctrl, spell_id: String):
-	if current_state == State.CASTING: return
-	if not ctrl: return
-	
-	var data = DataManager.get_spell(spell_id)
-	var cost = data.get("charge_cost", 0)
-	
-	if global_charge < cost:
-		CombatManager._create_floating_text(position, "NOT ENOUGH CHARGE!", Color.ORANGE)
-		return
-
-	if ctrl.has_method("can_cast") and not ctrl.can_cast(): # Optional cooldown check
-		return
-		
-	# Special case for existing controllers that use try_cast instead of can_cast
-	# but we've refactored them to be managed here.
-	# For now, let's keep it simple:
-	var target_pos = Vector2.ZERO
-	if ctrl.has_method("try_cast"): target_pos = ctrl.try_cast(position)
-	elif ctrl.has_method("try_cast_chain_lightning"): target_pos = ctrl.try_cast_chain_lightning(position)
-	
-	if ctrl.is_casting:
-		state_timer = 0.0
-		last_cast_success = true # Reset success flag
-		active_skill_ctrl = ctrl
-		casting_time = data.get("cast_time", 1.0)
-		casting_direction = target_pos
-		
-		# --- SWAP ANIMATION TEXTURES ---
-		var c_id = data.get("casting_anim_id", 0)
-		var s_id = data.get("success_anim_id", 0)
-		
-		if CASTING_TEXTURES.has(c_id):
-			casting.texture = load(CASTING_TEXTURES[c_id])
-			casting.hframes = data.get("casting_frames", 22)
-			
-		if SUCCESS_TEXTURES.has(s_id):
-			casting_success.texture = load(SUCCESS_TEXTURES[s_id])
-			casting_success.hframes = data.get("success_frames", 8)
-		
-		change_state(State.CASTING)
+# LEGACY _try_start_cast removed, moved to CastingComponent
 
 # --- UTILS ---
 func sprite_swap():
@@ -703,7 +690,7 @@ func sprite_swap():
 	var active = get_active_sprite()
 	if active: 
 		active.visible = true
-		active.position.y = 0
+		# active.position.y = 0
 		
 		# --- BULLETPROOF REGION-BOUNDED hframes ---
 		# We define the 'Real Area' and let Godot's hframes divide only THAT.
@@ -765,7 +752,7 @@ func sprite_swap():
  
 			# --- USER DEBUG PRINT ---
 			if Engine.get_process_frames() % 60 == 0:
-				print("[PlayerPhysics] State: %s | TexW: %d | Frames: %d | Cell: %d" % [
+				print("[player_controller][PlayerPhysics] State: %s | TexW: %d | Frames: %d | Cell: %d" % [
 					State.keys()[current_state],
 					total_w,
 					active.hframes,
@@ -791,6 +778,9 @@ func reset_animations():
 func change_state(new_state):
 	if current_state == new_state: return
 			
+	if current_state == State.ATTACKING and new_state != State.IDLE:
+		return
+
 	# Exit Logic
 	if new_state == State.HURT:
 		emit_signal("struck")
@@ -798,9 +788,8 @@ func change_state(new_state):
 	reset_animations() # Stop all animations until we set the correct one for the new state
 
 	if current_state == State.CASTING or current_state == State.CASTING_COMPLETE:
-		emit_signal("cast_finished")
-		if active_skill_ctrl and active_skill_ctrl.is_casting:
-			active_skill_ctrl.interrupt_charging()
+		if casting_component.active_skill_ctrl and casting_component.active_skill_ctrl.is_casting:
+			casting_component.active_skill_ctrl.interrupt_charging()
 		player_cast_bar.visible = false
 		casting_success.frame = 0
 		casting.frame = 0
@@ -829,7 +818,7 @@ func change_state(new_state):
 	match current_state:
 		State.CASTING:
 			# --- FLIP DIRECTION SYNC ---
-			var dir_is_right = casting_direction.x > position.x
+			var dir_is_right = casting_component.casting_direction.x > position.x
 			facing_right = dir_is_right
 		State.IDLE:
 			player_cast_bar.visible = false
@@ -884,22 +873,22 @@ func update_animation(_delta):
 			if(active.frame < active.hframes):
 				t = Time.get_ticks_msec() / 100.0 
 			active.frame = (int(t)) % active.hframes
-			print("active.frame", active.frame)
-			print("active.hframe", active.hframes)
 		State.CASTING_COMPLETE:
 			var h_cnt : int = 0
-			if active_skill_ctrl:
-				var data = DataManager.get_spell(active_skill_ctrl.get_spell_id())
+			var ctrl = casting_component.active_skill_ctrl
+			if ctrl:
+				var data = DataManager.get_spell(ctrl.get_spell_id() if ctrl.has_method("get_spell_id") else "")
 				if data: h_cnt = data.get("success_frames", 8)
 			if(casting_success.frame < h_cnt-1): 
 				var t : int = int(Time.get_ticks_msec() / 30.0)
 				casting_success.frame = int(t) % (h_cnt)
-				print("Casting Success Frame: %d / %d" % [casting_success.frame, h_cnt])
+				# print("[player_controller] Casting Success Frame: %d / %d" % [casting_success.frame, h_cnt])
 		State.CASTING:
 			var t = Time.get_ticks_msec() / 100.0
 			var h_cnt : int = 0
-			if active_skill_ctrl:
-				var data = DataManager.get_spell(active_skill_ctrl.get_spell_id())
+			var ctrl = casting_component.active_skill_ctrl
+			if ctrl:
+				var data = DataManager.get_spell(ctrl.get_spell_id() if ctrl.has_method("get_spell_id") else "")
 				if data: h_cnt = data.get("casting_frames", 22)
 			casting.frame = int(t) % h_cnt
 		State.RUNNING:
@@ -930,8 +919,9 @@ const PLAYER_SWORD_HITBOX_OFFSET = Vector2(26.7, 0)
 # --- AIM HELPER ---
 func update_aim_indicator():
 	if is_mouse_steering:
+		var dir = casting_component.casting_direction if current_state == State.CASTING else input_steer_target
 		aim_indicator.visible = true
-		aim_indicator.rotation = (input_steer_target - position).angle()
+		aim_indicator.rotation = (dir - position).angle()
 	else:
 		aim_indicator.visible = false
 
@@ -958,15 +948,17 @@ func add_charge(amount: float):
 func consume_charge(amount: float):
 	global_charge = clamp(global_charge - amount, 0, MAX_CHARGE)
 	emit_signal("charge_changed", global_charge)
-	print("Power Surge: %d/%d" % [global_charge, MAX_CHARGE])
+	print("[player_controller]Power Surge: %d/%d" % [global_charge, MAX_CHARGE])
 
 func on_interaction_success(_msg, _meta):
-	last_cast_success = true
+	print("[player_controller] recvd CombatManager validation")
+	casting_component.last_cast_success = true
 
 func on_interaction_fail(reason: String):
 	# If we are currently casting and we get a failure, track it
 	if current_state == State.CASTING or current_state == State.CASTING_COMPLETE:
 		if reason == "OUT_OF_RANGE" or reason == "TARGET_INVALID":
-			last_cast_success = false
+			print("[player_controller] recvd CombatManager fail")
+			casting_component.last_cast_success = false
 			# Force jump back to IDLE if the interaction failed mid-cast
 			change_state(State.IDLE)

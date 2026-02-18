@@ -25,7 +25,7 @@ func _init(p: BaseEntity):
 
 func update(delta: float):
 	# 1. Update Buffers
-	if parent.is_on_floor_physics:
+	if parent.is_on_floor():
 		coyote_timer = COYOTE_TIME
 	else:
 		if coyote_timer > 0:
@@ -35,15 +35,15 @@ func update(delta: float):
 		jump_buffer_timer -= delta
 		
 	# 2. Check for Landing
-	if parent.is_on_floor_physics and parent.velocity.y >= 0:
+	if parent.is_on_floor() and parent.velocity.y >= 0:
 		if parent.current_state == BaseEntity.State.JUMPING or \
 		   parent.current_state == BaseEntity.State.JUMP_PEAK or \
 		   parent.current_state == BaseEntity.State.FALLING:
-			parent.change_state(BaseEntity.State.IDLE)
+			parent.change_state(BaseEntity.State.LANDING)
 			parent.set("gravity_multiplier", 1.0)
 			
 	# 3. State Transitions while in the air
-	if not parent.is_on_floor_physics:
+	if not parent.is_on_floor():
 		var vy = parent.velocity.y
 		# Ascending
 		if vy < -peak_threshold:
@@ -65,12 +65,12 @@ func update(delta: float):
 				parent.set("gravity_multiplier", falling_gravity_mult)
 
 	# 4. Handle Buffered Jump
-	if parent.is_on_floor_physics and jump_buffer_timer > 0:
+	if parent.is_on_floor() and jump_buffer_timer > 0:
 		perform_jump()
 
 func handle_jump_input():
 	if (parent.is_rooted_active == false) and \
-		(parent.is_on_floor_physics or coyote_timer > 0.0):
+		(parent.is_on_floor() or coyote_timer > 0.0):
 		# Don't jump if already jumping or dashing (though jumping state is more granular now)
 		# We allow jumping from FALLING if coyote time is active
 		perform_jump()
@@ -79,7 +79,7 @@ func handle_jump_input():
 
 func perform_jump():
 	parent.velocity.y = jump_impulse
-	parent.is_on_floor_physics = false
+	# parent.is_on_floor_physics = false # This is now internal to CharacterBody2D
 	coyote_timer = 0.0
 	jump_buffer_timer = 0.0
 	parent.set("gravity_multiplier", jumping_gravity_mult)

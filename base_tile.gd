@@ -44,6 +44,17 @@ func _ready():
 			frame = 0
 			frame_count = 5
 	_align_to_base()
+	
+	# --- SETUP COLLISION ---
+	var static_body = StaticBody2D.new()
+	add_child(static_body)
+	
+	var col = CollisionShape2D.new()
+	var shape = RectangleShape2D.new()
+	shape.size = Vector2(32, 32)
+	col.shape = shape
+	# Tile is 32x32 centered. Bottom is +16.
+	static_body.add_child(col)
 
 func _process(delta):
 	# 1. Detection: Check if any entity is on top of this tile

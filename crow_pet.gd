@@ -159,4 +159,4 @@ func start_attack(target: Node2D):
 func hit_target(target: Node2D):
 	if target.has_method("apply_hit"):
 		target.apply_hit(DAMAGE, self)
-	print("Crow struck target!")
+	# print("[CrowPet] struck target!")
