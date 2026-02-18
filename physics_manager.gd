@@ -104,11 +104,14 @@ func _simulate_second_order(sim, delta):
 
 func _simulate_character_physics(char_node, delta):
 	if char_node is CharacterBody2D:
+		# Skip Player to avoid double simulation (handled in PlayerController._physics_process)
+		if char_node.is_in_group("Player"): 
+			return
+			
 		# Default movement and gravity for entities that became CharacterBody2D
 		if not char_node.is_on_floor():
-			var velocity = char_node.get("velocity") if "velocity" in char_node else Vector2.ZERO
-			var gravity_multiplier = char_node.get("gravity_multiplier") if "gravity_multiplier" in char_node else 1.0
-			velocity.y += gravity_player.y * gravity_multiplier * delta
+			var g_mult = char_node.get("gravity_multiplier") if "gravity_multiplier" in char_node else 1.0
+			char_node.velocity.y += gravity_player.y * g_mult * delta
 		char_node.move_and_slide()
 		return
 	if not char_node.has_method("apply_physics"):
@@ -248,6 +251,7 @@ func set_second_order_target(id: String, new_y: Vector2):
 	if native_manager:
 		native_manager.set_second_order_target(id, new_y)
 		return
+
 	for body in simulated_objects:
 		if body is Dictionary and body.get("id") == id:
 			body.y = new_y

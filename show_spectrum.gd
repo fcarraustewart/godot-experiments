@@ -728,6 +728,14 @@ func _ready():
 	if CombatManager:
 		CombatManager.current_game_node = self
 	
+	# --- SETUP BACKGROUND NOISE ---
+	var bg_noise = AudioStreamPlayer.new()
+	bg_noise.name = "BackgroundNoise"
+	bg_noise.stream = load("res://art/environment/background noise/birds-forest.WAV")
+	bg_noise.volume_db = -18.0 # Soft background
+	bg_noise.autoplay = true
+	add_child(bg_noise)
+	
 	spectrum = AudioServer.get_bus_effect_instance(0, 0)
 	if not spectrum:
 		print("[ShowSpectrum] WARNING: Could not find AudioEffectSpectrumInstance on Bus 0, Effect 0.")
