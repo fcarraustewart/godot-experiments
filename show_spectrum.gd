@@ -184,6 +184,47 @@ func setup_trees():
 		all_trees.append(tree)
 		all_trees.append(tree2)
 
+		# --- MUSHROOM DECORATIONS at base of foreground trees ---
+		_spawn_mushrooms_at_tree(tree2, s2, tree_tex.get_height())
+		# --- MUSHROOM DECORATIONS at base of foreground trees ---
+		_spawn_mushrooms_at_tree(tree, s, tree_tex.get_height())
+
+
+func _spawn_mushrooms_at_tree(tree: Sprite2D, tree_scale: float, tree_tex_height: float):
+	var mush_tex = load("res://art/environment/tileset/DecoMushroom-Bottom.png")
+	if not mush_tex: return
+
+	var count = randi_range(1, 3)
+	var tree_base_y = tree.position.y + tree_tex_height * tree_scale * 0.5 # bottom center
+
+	for j in range(count):
+		var mush = Sprite2D.new()
+		mush.texture = mush_tex
+		
+		# Depth-influenced scale: match parent tree scale roughly
+		var ms = randf_range(0.4, 0.9) * clamp(tree_scale, 0.6, 1.4)
+		mush.scale = Vector2(ms, ms)
+		if randf() > 0.5: mush.scale.x *= -1 # random flip
+		
+		# Cluster at the tree base with small horizontal spread
+		var x_off = randf_range(-18.0, 18.0) * tree_scale
+		mush.position = Vector2(tree.position.x + x_off, tree_base_y - mush_tex.get_height() * ms * 0.45)
+		
+		# Z-index: just in front of the tree
+		mush.z_index = tree.z_index + 1
+		
+		# Brighter-at-top look: HDR blue-white glow tint
+		# The sprite top should feel lit, base stays dark
+		# We achieve this with a warm-glow modulate (slightly above 1.0 for HDR)
+		var brightness = randf_range(0.8, 1.3)
+		mush.modulate = Color(0.4 * brightness, 0.9 * brightness, 1.8 * brightness, 0.9)
+		
+		# Additive blend so they glow softly into the background
+		var mat = CanvasItemMaterial.new()
+		mat.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+		mush.material = mat
+		
+		add_child(mush)
 
 func setup_grass():
 	var grass_shader = load("res://grass.gdshader")
@@ -1290,7 +1331,7 @@ func _create_tiled_area(pos: Vector2, width: float, z: int) -> Vector2:
 			tile.is_flipped = true
 		else:
 			# Randomly pick between Default and Grass
-			if randf() < 0.2:
+			if randf() < 0.4: # 40% chance for grass tile
 				tile.type = tile.TileType.WITH_GRASS
 			else:
 				tile.type = tile.TileType.DEFAULT
@@ -1308,20 +1349,32 @@ func _on_tile_stepped_on(tile):
 
 func _spawn_grass_swarm(pos: Vector2):
 	# User Request: Swarm with flockunit default
+	if pos == Vector2.ZERO:
+		print("[ShowSpectrum] WARNING: Attempted to spawn grass swarm at (0,0). Check tile position logic.")
+		return
+	if not player:
+		print("[ShowSpectrum] WARNING: Player node not found when spawning grass swarm.")
+		return
+	if player.position - pos > Vector2(1, 1) and player.position - pos < Vector2(-1, -1):
+		print("[ShowSpectrum] Skipping grass swarm spawn due to distance from player.")
+		return
 	var swarm_container = Node2D.new()
 	swarm_container.global_position = pos
 	add_child(swarm_container)
 	
 	# Create Manager
 	var manager = BaseFlockSwarm.new()
-	manager.unit_count = 2
+	manager.target_node = player
+	manager.unit_count = 3
 	manager.target_attraction_weight = -0.005 # Dispersing
-	manager.max_speed = 12.0
-	manager.perception_radius = 50.0
-	manager.separation_weight = -2.5
-	manager.alignment_weight = -1.0
-	manager.spawn_radius = 3.0
-	manager.frequency = 1.8
+	manager.max_speed = 1.0
+	manager.perception_radius = 10.0
+	manager.separation_weight = 2.5
+	manager.alignment_weight = -2.5
+	manager.spawn_radius = 10.0
+	manager.frequency = 4.8
+	manager.damping = 0.9
+	manager.response = 1.0
 	swarm_container.add_child(manager)
 	
 	# Manually spawn units since we don't have a scene but want to use flock_unit.gd script
@@ -1350,7 +1403,7 @@ func _spawn_grass_swarm(pos: Vector2):
 			if is_instance_valid(u):
 				_spawn_leaf(u.global_position)
 	)
-	t.tween_interval(1.6) # Short dispersion burst
+	t.tween_interval(0.6) # Short dispersion burst
 	t.tween_callback(func():
 		for u in units:
 			if is_instance_valid(u):
