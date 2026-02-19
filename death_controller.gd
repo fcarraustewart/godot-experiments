@@ -10,12 +10,12 @@ class_name DeathController
 # --- DYNAMICS PARAMETERS (Live Editing) ---
 # Separate settings for Skull vs Body for different "weight" feel
 @export_group("Skull Dynamics")
-@export var skull_f: float = 0.5
+@export var skull_f: float = 4.5
 @export var skull_z: float = 8.6
 @export var skull_r: float = 0.1
 
 @export_group("Joint Dynamics")
-@export var joint_f: float = 0.9
+@export var joint_f: float = 1.9
 @export var joint_z: float = 0.8
 @export var joint_r: float = 0.0
 
@@ -165,7 +165,6 @@ func on_interaction_fail(reason: String):
 			state_timer = 2.0 # Boss gets annoyed for 2 seconds
 			change_state(State.INTERRUPTED)
 			
-
 func _process_ai(delta):
 	# Simple Aggro/Chase
 	if is_instance_valid(target_player):

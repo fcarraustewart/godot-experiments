@@ -38,7 +38,7 @@ func calculate_hit_interruption(state_timer: float, casting_time: float) -> floa
 		# diminishing_return is incremented in handle_hit
 		if diminishing_return < 3.0:
 			print("[InterruptionComponent] Calculating hit delay. DR = ", diminishing_return)
-			return -0.01 * diminishing_return
+			return 0.01 * diminishing_return
 	return 0.0
 
 func clear_hit_count():

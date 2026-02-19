@@ -106,22 +106,28 @@ func apply_root(duration: float):
 func _on_interruption(reason: BaseEntity.Reason):
 	print("[player_controller] detected cast interruption! Reason: %s" % BaseEntity.Reason.keys()[reason])
 	
+	casting_component.interrupt(reason)
+
 	match(reason):		
-		BaseEntity.Reason.SILENCED, BaseEntity.Reason.KICKED, BaseEntity.Reason.PARRIED:
-			# legacy access, maybe move this too?
-			if(casting_component.active_skill_ctrl.get_spell_id() == "chain_lightning"):
-				casting_component.active_skill_ctrl.cooldown = casting_component.active_skill_ctrl.CHAIN_COOLDOWN_MAX * 4.5
+		BaseEntity.Reason.SILENCED, BaseEntity.Reason.KICKED:
+			casting_component.emit_signal("cast_locked_out", INTERRUPTED_DURATION)
 			state_timer = INTERRUPTED_DURATION
 			change_state(State.INTERRUPTED)
-			
+
+		BaseEntity.Reason.PARRIED:
+			if current_state == State.ATTACKING or State.ATTACKING_2 or State.ATTACKING_3:
+				change_state(State.STUNNED)
+
 		BaseEntity.Reason.STUNNED:
 			change_state(State.STUNNED)
 		
 		BaseEntity.Reason.HIT:
 			if current_state == BaseEntity.State.CASTING:
 				var knockback_delay = interruption_component.handle_hit(current_state, state_timer, casting_component.casting_time)
-				state_timer = knockback_delay
-				if knockback_delay < 0:
+				state_timer -= knockback_delay
+				casting_component.emit_signal("cast_knockback", knockback_delay)
+
+				if knockback_delay > 0:
 					print("[player_controller] Knockback applied with delay %f seconds!" % -knockback_delay)
 					velocity += (position - get_node("/root/Main/Enemy").position).normalized() * 200.0 # Simple knockback away from enemy
 
@@ -526,19 +532,24 @@ func process_casting(delta):
 	check_movement_input() # Allow air control
 	check_action_input()
 	update_aim_indicator()
-
+	casting_component.update(delta)
 	# --- UI UPDATE ---
 	player_cast_bar.visible = true
 	player_cast_bar.max_value = casting_component.casting_time
 	player_cast_bar.value = casting_component.state_timer
+	# emanate some particles of charge
 	# -----------------
-
-	casting_component.update(delta)
 
 func process_casting_complete(delta):
 	check_movement_input() # Allow air control
 	check_action_input()
 	update_aim_indicator()
+
+	# --- UI UPDATE ---
+	player_cast_bar.max_value = casting_component.casting_time
+	# emanate some particles
+	#
+	# -----------------
 
 	if casting_component.handle_success_animation(delta):
 		state_timer = 0.0 # Just in case

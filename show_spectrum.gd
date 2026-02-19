@@ -583,7 +583,7 @@ func _reflect_node_in_pond(vis: Node2D, pond: Node2D, frame: int):
 	if not ref:
 		if vis is Line2D:
 			ref = Line2D.new()
-			ref.width = vis.width * 0.7
+			ref.width = vis.width
 			ref.texture = vis.texture
 			ref.texture_mode = vis.texture_mode
 			ref.material = vis.material
@@ -614,7 +614,7 @@ func _reflect_node_in_pond(vis: Node2D, pond: Node2D, frame: int):
 			pond_top_y += local_min_y
 
 		# Reflection Center Calculation with Feet Offset Awareness
-		var f_off = vis.get("feet_offset") if "feet_offset" in vis else 32.0
+		var f_off = vis.get("feet_offset") if "feet_offset" in vis else 0.0
 		var vis_center_y = vis.global_position.y
 		
 		ref.global_position.x = vis.global_position.x

@@ -6,6 +6,8 @@ signal cast_started(spell_id: String, duration: float)
 signal cast_done
 signal cast_success(spell_id: String)
 signal cast_failed(reason: String)
+signal cast_knockback(amount: float)
+signal cast_locked_out(amount: float)
 
 var parent: BaseEntity
 var active_skill_ctrl = null
@@ -14,8 +16,11 @@ var casting_time: float = 1.0
 var state_timer: float = 0.0
 var last_cast_success: bool = true
 var from_above: bool = false
+var knockback_amount: float = 0.0
 
 func _init(p: BaseEntity):
+	cast_knockback.connect(_on_cast_knockback)
+	cast_locked_out.connect(_on_cast_locked_out)
 	parent = p
 
 func try_start_cast(ctrl, spell_id: String, global_charge: float) -> bool:
@@ -47,11 +52,21 @@ func try_start_cast(ctrl, spell_id: String, global_charge: float) -> bool:
 	
 	return false
 
+func _on_cast_knockback(amount: float):
+	knockback_amount = amount
+func _on_cast_locked_out(amount: float):
+	if(active_skill_ctrl.get_spell_id() == "chain_lightning"):
+		active_skill_ctrl.cooldown = active_skill_ctrl.CHAIN_COOLDOWN_MAX * 4.5
+
 func update(delta: float):
 	if parent.current_state != BaseEntity.State.CASTING:
 		return
 
 	state_timer += delta
+
+	if knockback_amount > 0.0:
+		state_timer -= knockback_amount
+		knockback_amount = 0
 
 	if active_skill_ctrl:
 		from_above = !from_above
@@ -66,11 +81,14 @@ func update(delta: float):
 		else:
 			emit_signal("cast_failed", BaseEntity.Reason.FAILED)
 
-func interrupt():
-	if active_skill_ctrl and active_skill_ctrl.is_casting:
+func interrupt(reason: BaseEntity.Reason):
+	if (reason == BaseEntity.Reason.SILENCED) or \
+		(reason == BaseEntity.Reason.KICKED) and \
+		(active_skill_ctrl and active_skill_ctrl.is_casting):
 		active_skill_ctrl.interrupt_charging()
-	active_skill_ctrl = null
-	emit_signal("cast_failed", BaseEntity.Reason.FAILED)
+		active_skill_ctrl = null
+		emit_signal("cast_failed", reason)
+
 
 func handle_success_animation(delta: float) -> bool:
 	state_timer -= delta
