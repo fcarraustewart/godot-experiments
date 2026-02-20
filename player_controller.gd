@@ -63,7 +63,11 @@ var is_slowed_active = false
 var active_slow_factor = 1.0
 
 var jump_component: JumpComponent
-
+var movement_component: MovementComponent
+var action_component: ActionComponent
+var knockback_component: KnockbackComponent
+var interaction_component: InteractionComponent
+var inventory_component: InventoryComponent
 
 # --- INPUT STATE (Populated by KeybindListener) ---
 var input_throttle = 0.0
@@ -128,8 +132,11 @@ func _on_interruption(reason: BaseEntity.Reason):
 				casting_component.emit_signal("cast_knockback", knockback_delay)
 
 				if knockback_delay > 0:
-					print("[player_controller] Knockback applied with delay %f seconds!" % -knockback_delay)
-					velocity += (position - get_node("/root/Main/Enemy").position).normalized() * 200.0 # Simple knockback away from enemy
+					print("[player_controller] Knockback applied!")
+					# Use KnockbackComponent instead of raw velocity +=
+					var enemy = get_node_or_null("/root/Main/Enemy")
+					var dir = (position - (enemy.position if enemy else position)).normalized()
+					knockback_component.apply_impulse(dir, 200.0)
 
 		BaseEntity.Reason.OTHER:
 			change_state(State.IDLE)
@@ -339,8 +346,22 @@ func _ready():
 	add_child(crow_pet)
 
 	jump_component = JumpComponent.new(self)
-	# JumpComponent needs to be able to emit signals from player
 	add_child(jump_component)
+
+	movement_component = MovementComponent.new(self)
+	add_child(movement_component)
+
+	action_component = ActionComponent.new(self)
+	add_child(action_component)
+
+	knockback_component = KnockbackComponent.new(self)
+	add_child(knockback_component)
+
+	interaction_component = InteractionComponent.new(self)
+	add_child(interaction_component)
+
+	inventory_component = InventoryComponent.new()
+	add_child(inventory_component)
 
 	casting_component = CastingComponent.new(self)
 	add_child(casting_component)
@@ -446,10 +467,15 @@ func _physics_process(delta):
 		velocity.y += gravity_val * gravity_multiplier * delta
 
 	# 2. Update Jump Component - Handles buffers and signals
-	jump_component.update(delta) 
-	
-	# 3. Apply Movement
-	# We use move_and_slide for smooth platforming
+	jump_component.update(delta)
+
+	# 3. Movement (owned by MovementComponent)
+	movement_component.update(delta)
+
+	# 4. Knockback decay
+	knockback_component.update(delta)
+
+	# 5. Apply physics
 	move_and_slide()
 
 func _process(delta):
@@ -485,7 +511,11 @@ func _process(delta):
 	# position += velocity * delta
 	
 	# Animation & Visuals
-	update_animation(delta)	
+	update_animation(delta)
+
+	# Interaction scanning
+	if interaction_component:
+		interaction_component.update(delta)
 
 # --- STATE HANDLERS ---
 
@@ -590,41 +620,9 @@ func process_interrupted(delta):
 		change_state(State.IDLE)
 
 func check_movement_input():
-	if is_rooted_active:
-		velocity.x = 0
-		return
-
-	# --- HORIZONTAL MOVEMENT ---
-	var move_dir = 0.0
-	if input_throttle != 0:
-		move_dir = input_throttle
-		facing_right = move_dir > 0
-	
-	# Start with base speed
-	var current_horizontal_speed = SPEED
-	
-	# Apply state modifiers (ONLY to horizontal speed)
-	if current_state == State.DASHING:
-		current_horizontal_speed *= SPEED_WHILE_DASHING
-	elif current_state == State.JUMPING or current_state == State.JUMP_PEAK or current_state == State.FALLING:
-		current_horizontal_speed *= SPEED_WHILE_JUMPING
-		
-	# Apply slow
-	if is_slowed_active:
-		current_horizontal_speed *= active_slow_factor
-
-	# Set the velocity
-	if(current_state != State.CASTING):
-		velocity.x = move_dir * current_horizontal_speed
-	else:
-		velocity.x = 0 # Rooted during casting
-
-	# Update Animation States
-	if move_dir != 0:
-		if current_state == State.IDLE || current_state == State.STATIONARY: #todo: join separate the two states only on animation part clearly
-			change_state(State.RUNNING)
-	elif current_state == State.RUNNING:
-		change_state(State.IDLE)
+	# Delegated to MovementComponent — owns speed computation and velocity.x
+	if movement_component:
+		movement_component.update(0.0) # delta not critical here; _physics_process calls it with real delta
 
 func check_action_input():
 	# Now handled via _on_input_action signals
@@ -644,60 +642,12 @@ func _on_jump_input():
 
 # instants:
 func _on_input_action(action_name: String, data: Dictionary):
-	match action_name:
-		"toggle_mouse_steer":
-			is_mouse_steering = data.get("active", false)
-		
-		"jump":
-			_on_jump_input()
-		
-		"dash":
-			if current_state != State.JUMPING and current_state != State.JUMP_PEAK and current_state != State.FALLING and current_state != State.DASHING:
-				emit_signal("dashed")
-
-		# instants:
-		"attack":
-			if current_state != State.ATTACKING:
-				change_state(State.ATTACKING)
-				state_timer = ATTACK_DURATION
-				print("[player_controller] Start Attack.")
-				casting_component.emit_signal("cast_started", ATTACK_DURATION)
-				if is_instance_valid(axe_ctrl):
-					axe_ctrl.start_attack()
-
-		"cleave_swarm":
-			if current_state != State.ATTACKING and current_state != State.ATTACKING_2 and current_state != State.ATTACKING_3:
-				# Sync facing with aim direction before attack
-				if input_throttle != 0:
-					facing_right = input_throttle > 0
-				
-				cleave_count += 1
-				var type = 1 if cleave_count % 2 == 1 else 2
-				change_state(State.ATTACKING_2 if type == 1 else State.ATTACKING_3)
-				state_timer = ATTACK_DURATION * 2
-				casting_component.emit_signal("cast_started", ATTACK_DURATION)
-				if is_instance_valid(cleave_swarm_ctrl):
-					cleave_swarm_ctrl.cast_cleave(type)
-	
-		"fire_chains":
-			var ctrl = get_node_or_null("FireChainsController") # Assuming it's a child added in _ready
-			casting_component.try_start_cast(ctrl, "fire_chains", global_charge)
-		
-		# casted
-		"chain_lightning":
-			if current_state != State.JUMPING and \
-			current_state != State.DASHING and \
-			current_state != State.JUMP_PEAK and \
-			current_state != State.FALLING:
-				var ctrl = get_node_or_null("ChainLightningController")
-				casting_component.try_start_cast(ctrl, "chain_lightning", global_charge)
-		"meteor_strike":
-			if current_state != State.JUMPING and \
-			current_state != State.DASHING and \
-			current_state != State.JUMP_PEAK and \
-			current_state != State.FALLING:
-				var ctrl = get_node_or_null("MeteorStrikeController")
-				casting_component.try_start_cast(ctrl, "meteor_strike", global_charge)
+	if action_component:
+		action_component.handle_action(action_name, data)
+		return
+	# Fallback for toggle_mouse_steer if action_component fails
+	if action_name == "toggle_mouse_steer":
+		is_mouse_steering = data.get("active", false)
 
 # LEGACY _try_start_cast removed, moved to CastingComponent
 

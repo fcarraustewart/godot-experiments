@@ -23,10 +23,12 @@ extends Node2D
 # --- STATE ---
 var members: Array = []
 var target_node: Node2D = null
+@export var manual_spawn: bool = false  ## Set true to skip auto spawn_flock in _ready (for programmatic spawning)
 
 func _ready():
 	global_position = position
-	spawn_flock()
+	if not manual_spawn:
+		spawn_flock()
 
 func spawn_flock():
 	if not unit_scene:

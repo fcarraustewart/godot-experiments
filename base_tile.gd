@@ -16,6 +16,7 @@ var frame_count: int = 1
 # Textures
 const TEX_DEFAULT_STEPPED = preload("res://art/environment/tileset/TileSet-Default-NoGrass-SteppedOn.png")
 const TEX_SIDE_STEPPED = preload("res://art/environment/tileset/TileSet-SideEnd-SteppedOn.png")
+const TEX_SIDE_DEFAULT = preload("res://art/environment/tileset/TileSet-SideEnd-NoGrass.png")
 const TEX_GRASS_IDLE = preload("res://art/environment/tileset/TileSet-WithGrass-Idle.png")
 const TEX_GRASS_STEPPED = preload("res://art/environment/tileset/TileSet-WithGrass-SteppedOn.png")
 
@@ -30,11 +31,11 @@ func _ready():
 			frame = 0 # SteppedOn frame 1 as default state
 			frame_count = 2
 		TileType.SIDE_END:
-			texture = TEX_SIDE_STEPPED
-			hframes = 2
+			texture = TEX_SIDE_DEFAULT if state == TileState.IDLE else TEX_SIDE_STEPPED
+			hframes = 1
 			vframes = 1
-			frame = 0 # SteppedOn frame 1 as default state
-			frame_count = 2
+			frame = 0
+			frame_count = 1
 			flip_h = is_flipped
 		TileType.WITH_GRASS:
 			texture = TEX_GRASS_IDLE
@@ -96,7 +97,8 @@ func _update_visuals():
 		TileType.DEFAULT:
 			frame = 1 if state == TileState.STEPPED_ON else 0
 		TileType.SIDE_END:
-			frame = 1 if state == TileState.STEPPED_ON else 0
+			# There are two side_end textures: one for idle and one for stepped. We switch the whole texture based on state.
+			texture = TEX_SIDE_STEPPED if state == TileState.STEPPED_ON else TEX_SIDE_DEFAULT
 		TileType.WITH_GRASS:
 			if state == TileState.STEPPED_ON:
 				texture = TEX_GRASS_STEPPED

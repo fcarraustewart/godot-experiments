@@ -323,16 +323,13 @@ func setup_ponds():
 		water.add_child(re_cont)
 		
 		# Static Moon reflection in the pond
-		if moon_light:
+		var moon_glow_tex = load("res://art/moon_glow.png") if ResourceLoader.exists("res://art/moon_glow.png") else null
+		if moon_light and moon_glow_tex:
 			var moon_ref = Sprite2D.new()
 			moon_ref.name = "MoonRef"
-			moon_ref.texture = load("res://art/moon_glow.png") # Or similar
-			if not moon_ref.texture: 
-				# Fallback: create a circle
-				pass 
+			moon_ref.texture = moon_glow_tex
 			moon_ref.scale = Vector2(0.4, 0.2)
 			moon_ref.modulate = Color(1, 1, 1, 0.15)
-			# Distant parallax: move it slightly towards moon
 			var moon_dir = (moon_light.global_position - pond_container.global_position).normalized()
 			moon_ref.position = moon_dir * 15.0
 			re_cont.add_child(moon_ref)
@@ -386,6 +383,8 @@ func setup_platforms():
 
 func setup_tree_rays():
 	for tree in all_trees:
+		if tree.get_node_or_null("LightRays"):
+			continue # Already has rays
 		var rays = Line2D.new()
 		rays.name = "LightRays"
 		rays.width = 0.80
@@ -576,6 +575,8 @@ func update_reflections():
 	
 	# Also scrape world-level skills (e.g. Chain Lightning lines)
 	for child in get_children():
+		# Protect against non-visual/non-positional nodes like AudioStreamPlayer
+		if not (child is Node2D): continue
 		if child.name.contains("Pond") or child.name.contains("Ref_") or child == player_light or child == moon_light: continue
 		_collect_visual_nodes_recursive(child, visuals_to_reflect)
 			
@@ -584,20 +585,17 @@ func update_reflections():
 		
 		# Robust X-position detection for wide nodes like Line2D
 		var vis_x = vis.global_position.x
-		if vis is Line2D and vis.points.size() > 0:
-			# Use the horizontal span's center
-			var x_sum = 0.0
-			for p in vis.points: x_sum += p.x
-			vis_x += x_sum / vis.points.size()
-		
 		for pond in all_ponds:
 			# Skip if pond is off-screen Relative to player
 			if abs(pond.global_position.x - player.global_position.x) > 1200: continue
 			
+			# Ensure object is actually ABOVE the pond surface (prevents foreground trees reflecting downwards)
+			if vis.global_position.y > pond.global_position.y + 20: continue
+			
 			# Broad phase horizontal check
 			var dist_x = abs(vis_x - pond.global_position.x)
 			if dist_x > 400: continue # Slightly wider for lines
-			
+			print("Considering reflection of ", vis.name, " in ", pond.name)
 			_reflect_node_in_pond(vis, pond, current_frame)
 			#break # Only reflect in one pond
 			
@@ -659,11 +657,9 @@ func _reflect_node_in_pond(vis: Node2D, pond: Node2D, frame: int):
 		var vis_center_y = vis.global_position.y
 		
 		ref.global_position.x = vis.global_position.x
-		# Mirror logic: we want the feet (vis_center + f_off) reflected correctly
-		# dy is the distance from surface to feet
-		var dy = (vis_center_y + f_off) - pond_top_y
-		# The reflection's feet should be pond_top_y + dry
-		# Since it is flipped, the center is ref_feet + f_off
+		# Mirror logic: the distance from visual center to the pond surface
+		var dy = pond_top_y - (vis_center_y + f_off) 
+		# Reflection is pushed downwards by the same distance
 		ref.global_position.y = pond_top_y + dy + f_off
 		
 		# Visual State Sync
@@ -674,8 +670,10 @@ func _reflect_node_in_pond(vis: Node2D, pond: Node2D, frame: int):
 			ref.points = vis.points
 			ref.global_rotation = -vis.global_rotation
 			ref.scale.y = -1
-		elif vis is Sprite2D:
-			ref.frame = vis.frame
+		if vis is Sprite2D:
+			# Clamp frame to avoid out-of-bounds when ref has fewer frames than vis
+			var max_frame = max(0, ref.hframes * ref.vframes - 1)
+			ref.frame = clamp(vis.frame, 0, max_frame)
 			ref.flip_h = vis.flip_h
 			ref.flip_v = !vis.flip_v
 			ref.scale = vis.scale
@@ -721,7 +719,12 @@ func _update_node_reflection(entity: Node2D, reflection: Node2D, pond: Node2D):
 			pond_surface_y += local_min_y # adjust to top edge
 			
 		reflection.global_position.x = entity.global_position.x
-		reflection.global_position.y = pond_surface_y + (pond_surface_y - entity.global_position.y)
+		
+		var f_off = entity.get("feet_offset") if "feet_offset" in entity else 0.0
+		var vis_center_y = entity.global_position.y
+		var dy = pond_surface_y - (vis_center_y + f_off)
+		
+		reflection.global_position.y = pond_surface_y + dy + f_off
 		
 		rs.texture = active_sprite.texture
 		rs.hframes = active_sprite.hframes
@@ -1364,6 +1367,7 @@ func _spawn_grass_swarm(pos: Vector2):
 	
 	# Create Manager
 	var manager = BaseFlockSwarm.new()
+	manager.manual_spawn = true  # We spawn units manually below; skip unit_scene requirement
 	manager.target_node = player
 	manager.unit_count = 3
 	manager.target_attraction_weight = -0.005 # Dispersing

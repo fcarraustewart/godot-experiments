@@ -17,6 +17,8 @@ const ACTION_SKILL_1 = "chain_lightning"
 const ACTION_SKILL_2 = "fire_chains"
 const ACTION_ULTIMATE = "meteor_strike"
 const ACTION_CLEAVE_SWARM = "cleave_swarm"
+const ACTION_INTERACT = "interact"
+const ACTION_INVENTORY = "inventory"
 
 # Internal Input Map (Configurable via external DB later)
 var key_map = {
@@ -26,7 +28,9 @@ var key_map = {
 	KEY_3: ACTION_SKILL_1,
 	KEY_F: ACTION_SKILL_2,
 	KEY_R: ACTION_ULTIMATE,
-	KEY_1: ACTION_CLEAVE_SWARM
+	KEY_1: ACTION_CLEAVE_SWARM,
+	KEY_E: ACTION_INTERACT,
+	KEY_I: ACTION_INVENTORY
 }
 
 func _unhandled_input(event: InputEvent):
@@ -44,6 +48,13 @@ func _unhandled_input(event: InputEvent):
 func _process(_delta):
 	# Continious Input (Throttle/Steering)
 	_process_movement_input()
+	# Mouse Right-Click (Special Steer Mode)
+	if Input.is_key_pressed(KEY_I):
+		print("[KBL] Inventory key pressed")
+		emit_signal("action_triggered", "inventory", {})
+	if Input.is_key_pressed(KEY_E):
+		print("[KBL] Interact key pressed")
+		emit_signal("action_triggered", "interact", {})
 
 func _process_movement_input():
 	# THROTTLE (Advance/Backup)
