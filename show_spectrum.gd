@@ -830,11 +830,11 @@ func _ready():
 		CombatManager.register_entity(player)
 	# -------------------------------
 	
-	# ---- SETUP CROW PET ---
-	var crow = load("res://crow_pet.gd").new()
-	crow.position = player.position + Vector2(-50, -50)
-	crow.assign_host(player)
-	add_child(crow)
+	# ---- SETUP OWL PET ---
+	var owl = load("res://owl_pet.gd").new()
+	owl.position = player.position + Vector2(-50, -50)
+	owl.assign_host(player)
+	add_child(owl)
 	
 
 	var dust_list = []

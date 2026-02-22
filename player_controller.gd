@@ -336,15 +336,6 @@ func _ready():
 	meteor_strike_ctrl.game_node = game_node
 	add_child(meteor_strike_ctrl)
 	
-	crow_pet = load("res://crow_pet.gd").new()
-	crow_pet.host = self # Orbit this node
-	# Crow usually added to main scene to avoid rotation inheritance issues, 
-	# but adding to player is fine if we manage rotation carefully or use position
-	# User previous code added it to main scene. Let's keep it consistent if possible, 
-	# but for encapsulation, adding to Player is better. 
-	# BUT `crow_pet.gd` uses `position` relative to parent. If parent is player, it orbits player correctly.
-	add_child(crow_pet)
-
 	jump_component = JumpComponent.new(self)
 	add_child(jump_component)
 
