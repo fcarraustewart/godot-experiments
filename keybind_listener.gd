@@ -6,7 +6,6 @@ extends Node
 
 # Semantic Signals
 signal move_throttle_changed(value: float) # W/S or Joystick Y
-signal steer_direction_changed(direction: Vector2) # Mouse pos or AD keys
 signal action_triggered(action_name: String, data: Dictionary)
 
 # Action Names Constant (To avoid typos)
@@ -51,28 +50,26 @@ func _process(_delta):
 	# Mouse Right-Click (Special Steer Mode)
 	if Input.is_key_pressed(KEY_I):
 		print("[KBL] Inventory key pressed")
-		emit_signal("action_triggered", "inventory", {})
+		emit_signal("action_triggered", ACTION_INVENTORY, {})
 	if Input.is_key_pressed(KEY_E):
 		print("[KBL] Interact key pressed")
-		emit_signal("action_triggered", "interact", {})
+		emit_signal("action_triggered", ACTION_INTERACT, {})
 
 func _process_movement_input():
 	# THROTTLE (Advance/Backup)
-	var throttle = 0.0
+	var throttle: float = 0.0
 	if Input.is_key_pressed(KEY_D): throttle += 1.0
 	if Input.is_key_pressed(KEY_A): throttle -= 1.0 # Note: Back to -1.0 for Backup logic
 	
 	# STEERING
 	var steer_vec = Vector2.ZERO
-	if Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
-		# Semantic "Mouse Aim"
-		steer_vec = get_viewport().get_mouse_position()
-	else:
-		# Semantic "Keyboard Turn"
-		if Input.is_key_pressed(KEY_A): steer_vec = Vector2.LEFT
-		if Input.is_key_pressed(KEY_D): steer_vec = Vector2.RIGHT
+	var aim_vec = Vector2.ZERO
+	# Semantic "Keyboard Turn"
+	if Input.is_key_pressed(KEY_A): steer_vec = Vector2.LEFT
+	if Input.is_key_pressed(KEY_D): steer_vec = Vector2.RIGHT
+	# AIMING DIRECTION (for casting)
+	aim_vec = get_viewport().get_mouse_position()
 	
 	# These signals would be watched by the PlayerController
 	emit_signal("move_throttle_changed", throttle)
-	if steer_vec != Vector2.ZERO:
-		emit_signal("steer_direction_changed", steer_vec)
+	emit_signal("action_triggered", "mouse_direction", {"direction": aim_vec})

@@ -564,7 +564,6 @@ func update_reflections():
 				_update_node_reflection(entity, reflection, best_pond)
 
 	# 2. Update Dynamic Visuals & Skills
-	var current_frame = Engine.get_process_frames()
 	var visuals_to_reflect = []
 	
 	# Scrape Entities (Player and Enemies)
@@ -595,7 +594,7 @@ func update_reflections():
 			# Broad phase horizontal check
 			var dist_x = abs(vis_x - pond.global_position.x)
 			if dist_x > 400: continue # Slightly wider for lines
-			print("Considering reflection of ", vis.name, " in ", pond.name)
+
 			_reflect_node_in_pond(vis, pond, current_frame)
 			#break # Only reflect in one pond
 			
@@ -1240,18 +1239,18 @@ func _spawn_leaf(pos: Vector2):
 	leaf.z_index = 12 # Even higher to ensure visibility over everything
 	
 	# --- VISIBLE DEBUG OCTAGON (Lasts 1 second) ---
-	var debug = Polygon2D.new()
-	var sides = 8
-	var points = PackedVector2Array()
-	for i in range(sides):
-		var angle = i * TAU / sides
-		points.append(Vector2(cos(angle), sin(angle)) * 8.0)
-	debug.polygon = points
-	debug.color = Color(1, 1, 1, 0.5)
-	add_child(debug)
-	debug.global_position = pos
-	get_tree().create_timer(1.0).timeout.connect(debug.queue_free)
-	# ----------------------------------------------
+	# var debug = Polygon2D.new()
+	# var sides = 8
+	# var points = PackedVector2Array()
+	# for i in range(sides):
+	# 	var angle = i * TAU / sides
+	# 	points.append(Vector2(cos(angle), sin(angle)) * 8.0)
+	# debug.polygon = points
+	# debug.color = Color(1, 1, 1, 0.5)
+	# add_child(debug)
+	# debug.global_position = pos
+	# get_tree().create_timer(1.0).timeout.connect(debug.queue_free)
+	# # ----------------------------------------------
 
 	leaf.hframes = 15
 	leaf.frame = randi() % 15
@@ -1369,7 +1368,7 @@ func _spawn_grass_swarm(pos: Vector2):
 	var manager = BaseFlockSwarm.new()
 	manager.manual_spawn = true  # We spawn units manually below; skip unit_scene requirement
 	manager.target_node = player
-	manager.unit_count = 3
+	manager.unit_count = 2
 	manager.target_attraction_weight = -0.005 # Dispersing
 	manager.max_speed = 1.0
 	manager.perception_radius = 10.0
@@ -1407,7 +1406,7 @@ func _spawn_grass_swarm(pos: Vector2):
 			if is_instance_valid(u):
 				_spawn_leaf(u.global_position)
 	)
-	t.tween_interval(0.6) # Short dispersion burst
+	t.tween_interval(0.2) # Hold until clean
 	t.tween_callback(func():
 		for u in units:
 			if is_instance_valid(u):

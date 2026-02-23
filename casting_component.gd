@@ -46,8 +46,8 @@ func try_start_cast(ctrl, spell_id: String, global_charge: float) -> bool:
 		active_skill_ctrl = ctrl
 		casting_time = data.get("cast_time", 1.0)
 		casting_direction = target_pos
-		
-		emit_signal("cast_started", spell_id, casting_time)
+
+		emit_signal("cast_started", casting_time)
 		return true
 	
 	return false

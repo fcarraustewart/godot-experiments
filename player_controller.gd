@@ -65,13 +65,13 @@ var active_slow_factor = 1.0
 var jump_component: JumpComponent
 var movement_component: MovementComponent
 var action_component: ActionComponent
+var aim_component: AimComponent
 var knockback_component: KnockbackComponent
 var interaction_component: InteractionComponent
 var inventory_component: InventoryComponent
 
 # --- INPUT STATE (Populated by KeybindListener) ---
 var input_throttle = 0.0
-var input_steer_target = Vector2.ZERO # Either Mouse Pos or Direction Vector
 var is_mouse_steering = false
 
 # --- REFS ---
@@ -345,6 +345,9 @@ func _ready():
 	action_component = ActionComponent.new(self)
 	add_child(action_component)
 
+	aim_component = AimComponent.new(self)
+	add_child(aim_component)
+
 	knockback_component = KnockbackComponent.new(self)
 	add_child(knockback_component)
 
@@ -387,16 +390,6 @@ func _ready():
 	# Attach to player directly
 	add_child(player_cast_bar)
 	
-	# --- AIM INDICATOR ---
-	aim_indicator = Node2D.new()
-	aim_arrow_line = Line2D.new()
-	aim_arrow_line.points = PackedVector2Array([Vector2(0,0), Vector2(50,0), Vector2(42.5, -5), Vector2(50,0), Vector2(42.5, 5)])
-	aim_arrow_line.width = 1.0
-	aim_arrow_line.default_color = Color(1.0, 1.0, 1.0, 0.6)
-	aim_indicator.add_child(aim_arrow_line)
-	aim_indicator.visible = false
-	aim_indicator.scale = Vector2(0.5, 0.5)
-	add_child(aim_indicator)
 
 	# Connect Internal Signals
 	interruption_component.interrupted.connect(_on_interruption)
@@ -438,7 +431,6 @@ func _ready():
 	# --- LINK TO KEYBIND LISTENER ---
 	if KeybindListener:
 		KeybindListener.move_throttle_changed.connect(_on_input_throttle)
-		KeybindListener.steer_direction_changed.connect(_on_input_steer)
 		KeybindListener.action_triggered.connect(_on_input_action)
 
 func _exit_tree():
@@ -624,9 +616,6 @@ func check_action_input():
 func _on_input_throttle(val: float):
 	input_throttle = val
 
-func _on_input_steer(dir: Vector2):
-	input_steer_target = dir
-
 func _on_jump_input():
 	if jump_component: 
 		jump_component.handle_jump_input()
@@ -636,9 +625,6 @@ func _on_input_action(action_name: String, data: Dictionary):
 	if action_component:
 		action_component.handle_action(action_name, data)
 		return
-	# Fallback for toggle_mouse_steer if action_component fails
-	if action_name == "toggle_mouse_steer":
-		is_mouse_steering = data.get("active", false)
 
 # LEGACY _try_start_cast removed, moved to CastingComponent
 
@@ -876,13 +862,8 @@ const PLAYER_SWORD_HITBOX_OFFSET = Vector2(26.7, 0)
 
 # --- AIM HELPER ---
 func update_aim_indicator():
-	if is_mouse_steering:
-		var dir = casting_component.casting_direction if current_state == State.CASTING else input_steer_target
-		aim_indicator.visible = true
-		aim_indicator.rotation = (dir - position).angle()
-	else:
-		aim_indicator.visible = false
-
+	if aim_component and aim_component.is_active:
+		aim_component.update()
 
 
 func get_sword_hitbox() -> Rect2:

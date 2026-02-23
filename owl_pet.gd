@@ -12,7 +12,7 @@ const DYNAMICS_ORBIT_F = 0.4
 const DYNAMICS_ORBIT_Z = 0.55
 const DYNAMICS_ORBIT_R = 1.0
 
-const DYNAMICS_ATTACK_F = 4.0
+const DYNAMICS_ATTACK_F = 3.0
 const DYNAMICS_ATTACK_Z = 0.8
 const DYNAMICS_ATTACK_R = 0.5
 
@@ -39,7 +39,7 @@ func _ready():
 	# Create visual sprite
 	sprite = Sprite2D.new()
 	sprite.texture = TEX_FLYING
-	sprite.hframes = 7
+	sprite.hframes = 6
 	sprite.vframes = 1
 	sprite.scale = Vector2(0.8, 0.8) # Adjust as needed
 	add_child(sprite)
@@ -47,13 +47,16 @@ func _ready():
 	# Add a soft shadow
 	shadow = Sprite2D.new()
 	shadow.texture = TEX_FLYING # We'll just tint it
-	shadow.hframes = 7
+	shadow.hframes = 6
 	shadow.vframes = 1
 	shadow.scale = Vector2(0.6, 0.4)
 	shadow.modulate = Color(0, 0, 0, 0.3)
-	shadow.position = Vector2(0, 70)
-	shadow.z_index = -1
+	shadow.position = Vector2(0, 120)
+	shadow.z_index = 10
 	add_child(shadow)
+
+
+	attack_cooldown = 1.4
 	
 	super._ready()
 
@@ -162,8 +165,8 @@ func _update_visuals(delta):
 		vel = PhysicsManager.get_second_order_velocity(dynamics_sim.id)
 	
 	var speed = vel.length()
-	var moving_right = vel.x > 5
-	var moving_left = vel.x < -5
+	var moving_right = vel.x > 2
+	var moving_left = vel.x < -2
 
 	# Determine intent to flip
 	if not is_turning:
@@ -181,13 +184,13 @@ func _update_visuals(delta):
 				if dist < 80.0: # Close to target
 					_change_visual_state(OwlVisualState.DEACCEL, 4)
 				else:
-					_change_visual_state(OwlVisualState.FLYING, 7)
+					_change_visual_state(OwlVisualState.FLYING, 6)
 			else:
-				_change_visual_state(OwlVisualState.FLYING, 7)
+				_change_visual_state(OwlVisualState.STATIONARY, 5)
 		else:
 			if speed > 80.0:
-				_change_visual_state(OwlVisualState.FLYING, 7)
-			elif speed > 30.0:
+				_change_visual_state(OwlVisualState.FLYING, 6)
+			elif speed > 45.0:
 				_change_visual_state(OwlVisualState.DEACCEL, 4)
 			else:
 				_change_visual_state(OwlVisualState.STATIONARY, 5)
@@ -234,7 +237,7 @@ func _update_visuals(delta):
 func _start_turn(target_is_left: bool):
 	is_turning = true
 	target_flip = target_is_left
-	_change_visual_state(OwlVisualState.TURN, 3)
+	_change_visual_state(OwlVisualState.TURN, 4)
 
 func _change_visual_state(new_state: OwlVisualState, frames: int):
 	if visual_state != new_state:
@@ -254,6 +257,7 @@ func _change_visual_state(new_state: OwlVisualState, frames: int):
 			OwlVisualState.STATIONARY:
 				sprite.texture = TEX_STATIONARY
 			OwlVisualState.TURN:
+				sprite.flip_h = target_flip
 				sprite.texture = TEX_TURN
 				
 		# Try to keep phase sync if switching between flying and deaccel
