@@ -76,6 +76,24 @@ void NativePhysicsManager::set_second_order_target(String id, Vector2 new_y) {
     }
 }
 
+void NativePhysicsManager::set_second_order_pos(String id, Vector2 new_xp) {
+    for (auto &sim : sims) {
+        if (sim.id == id) {
+            sim.xp = new_xp;
+            break;
+        }
+    }
+}
+
+void NativePhysicsManager::set_second_order_velocity(String id, Vector2 new_xd) {
+    for (auto &sim : sims) {
+        if (sim.id == id) {
+            sim.xd = new_xd;
+            break;
+        }
+    }
+}
+
 void NativePhysicsManager::update_dynamics_for_sim(Dictionary sim_dict, float f, float zeta, float r) {
     String id = sim_dict.get("id", "");
     for (auto &sim : sims) {
@@ -95,6 +113,8 @@ void NativePhysicsManager::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_second_order_pos", "id"), &NativePhysicsManager::get_second_order_pos);
     ClassDB::bind_method(D_METHOD("get_second_order_velocity", "id"), &NativePhysicsManager::get_second_order_velocity);
     ClassDB::bind_method(D_METHOD("set_second_order_target", "id", "new_y"), &NativePhysicsManager::set_second_order_target);
+    ClassDB::bind_method(D_METHOD("set_second_order_pos", "id", "new_xp"), &NativePhysicsManager::set_second_order_pos);
+    ClassDB::bind_method(D_METHOD("set_second_order_velocity", "id", "new_xd"), &NativePhysicsManager::set_second_order_velocity);
     ClassDB::bind_method(D_METHOD("update_dynamics_for_sim", "sim_dict", "f", "zeta", "r"), &NativePhysicsManager::update_dynamics_for_sim);
 
     ClassDB::bind_method(D_METHOD("get_gravity"), &NativePhysicsManager::get_gravity);

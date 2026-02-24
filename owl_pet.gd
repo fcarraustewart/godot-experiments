@@ -154,6 +154,13 @@ func start_attack(target: Node2D):
 		PhysicsManager.update_dynamics_for_sim(dynamics_sim, DYNAMICS_ATTACK_F, DYNAMICS_ATTACK_Z, DYNAMICS_ATTACK_R)
 
 func hit_target(target: Node2D):
+	# try reflecting speed v.y with the new nativemanager
+	if PhysicsManager and dynamics_sim:
+		print("[Owl] Hitting target, applying damage and reflecting velocity.")
+		var vel = PhysicsManager.get_second_order_velocity(dynamics_sim.id)
+		vel.y = -abs(vel.y) * 1.0 # Reflect with some damping
+		PhysicsManager.set_second_order_velocity(dynamics_sim.id, vel)
+	# should use combatmanager:
 	if target.has_method("apply_hit"):
 		target.apply_hit(DAMAGE, self)
 

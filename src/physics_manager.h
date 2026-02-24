@@ -40,6 +40,8 @@ public:
     Vector2 get_second_order_pos(String id);
     Vector2 get_second_order_velocity(String id);
     void set_second_order_target(String id, Vector2 new_y);
+    void set_second_order_pos(String id, Vector2 new_xp);
+    void set_second_order_velocity(String id, Vector2 new_xd);
     void update_dynamics_for_sim(Dictionary sim_dict, float f, float zeta, float r);
 
     // Getters/Setters

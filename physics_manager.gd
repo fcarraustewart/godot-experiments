@@ -247,6 +247,16 @@ func get_second_order_velocity(id: String) -> Vector2:
 			return body.xd
 	return Vector2.ZERO
 
+func set_second_order_velocity(id: String, new_velocity: Vector2):
+	if native_manager:
+		print("[PhysicsManager] Setting second order velocity for id:", id, "to:", new_velocity)
+		native_manager.set_second_order_velocity(id, new_velocity)
+		return
+
+	for body in simulated_objects:
+		if body is Dictionary and body.get("id") == id:
+			body.xd = new_velocity
+
 func set_second_order_target(id: String, new_y: Vector2):
 	if native_manager:
 		native_manager.set_second_order_target(id, new_y)
