@@ -2,7 +2,7 @@ extends Node
 
 class_name CastingComponent
 
-signal cast_started(spell_id: String, duration: float)
+signal cast_started(duration: float)
 signal cast_done
 signal cast_success(spell_id: String)
 signal cast_failed(reason: String)
@@ -46,7 +46,6 @@ func try_start_cast(ctrl, spell_id: String, global_charge: float) -> bool:
 		active_skill_ctrl = ctrl
 		casting_time = data.get("cast_time", 1.0)
 		casting_direction = target_pos
-
 		emit_signal("cast_started", casting_time)
 		return true
 	

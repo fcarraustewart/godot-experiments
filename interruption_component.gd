@@ -4,7 +4,7 @@ class_name InterruptionComponent
 
 signal interrupted(reason: BaseEntity.Reason)
 
-var parent: BaseEntity
+var parent # BaseEntity but dynamic to access components
 var hit_count: int = 0
 var diminishing_return: float = 0.0
 
@@ -12,9 +12,10 @@ func _on_cast_started(spell_id: String, duration: float):
 	# Reset hit count and diminishing return when a new cast starts
 	clear_hit_count()
 
-func _init(p: BaseEntity):
+func _init(p):
 	parent = p
-	p.casting_component.connect("cast_started", _on_cast_started)
+	if "casting_component" in p and p.casting_component:
+		p.casting_component.cast_started.connect(_on_cast_started)
 
 func handle_hit(current_state: BaseEntity.State, state_timer: float, casting_time: float) -> float:
 	if current_state == BaseEntity.State.CASTING:
@@ -27,10 +28,8 @@ func interrupt(reason: BaseEntity.Reason):
 
 	if reason != BaseEntity.Reason.HIT and \
 		reason != BaseEntity.Reason.PARRIED and \
-		parent.casting_component:
-		parent.casting_component.interrupt()
-		clear_hit_count()
-	
+		"casting_component" in parent and parent.casting_component:
+		parent.casting_component.interrupt(reason)
 	emit_signal("interrupted", reason)
 
 func calculate_hit_interruption(state_timer: float, casting_time: float) -> float:

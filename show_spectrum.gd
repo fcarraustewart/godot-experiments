@@ -271,6 +271,7 @@ func setup_grass():
 
 var reflection_nodes = {} # Map of original node -> reflection node
 var all_ponds = [] # Array to store pond containers
+var reflection_manager = null # Native C++ object for reflections
 
 func setup_ponds():
 	var water_shader = load("res://water.gdshader")
@@ -521,241 +522,25 @@ func _create_reflection(entity: Node2D):
 	# No specific parent here, update_reflections will move it to the nearest pond
 	reflection_nodes[entity] = reflection
 
-# Track dynamic skill reflections to avoid duplicates
-
-var skill_reflections = {} # Map of skill_instance -> reflection_node
-
 func update_reflections():
-	# 1. Update Entities (Player, Enemies)
-	for entity in reflection_nodes.keys():
-		var reflection = reflection_nodes[entity]
-		if not is_instance_valid(entity) or not is_instance_valid(reflection): continue
-		
-		reflection.visible = false # Default
-		
-		var best_pond = null
-		var min_y_dist = 1000.0 # Wide vertical range
-		
-		for pond in all_ponds:
-			var pond_water = pond.get_node_or_null("PondWater")
-			if pond_water and pond_water is Polygon2D:
-				# Calculate pond surface and bounds
-				var local_bounds = Rect2(Vector2.ZERO, Vector2.ZERO)
-				for p in pond_water.polygon:
-					local_bounds = local_bounds.expand(p)
-				
-				var pond_width = local_bounds.size.x
-				var x_dist = abs(entity.global_position.x - pond.global_position.x)
-				var y_dist = abs(entity.global_position.y - pond.global_position.y)
-				
-				# Relaxed horizontal check: allow reflections if reasonably close to the pond's x-range
-				if x_dist < (pond_width / 2.0) + 200.0:
-					if y_dist < min_y_dist:
-						min_y_dist = y_dist
-						best_pond = pond
-
-		
-		if best_pond:
-			var re_cont = best_pond.get_node_or_null("PondWater/Reflections")
-			if re_cont:
-				if reflection.get_parent() != re_cont:
-					if reflection.get_parent(): reflection.get_parent().remove_child(reflection)
-					re_cont.add_child(reflection)
-				_update_node_reflection(entity, reflection, best_pond)
-
-	# 2. Update Dynamic Visuals & Skills
-	var visuals_to_reflect = []
+	if not reflection_manager: return
 	
 	# Scrape Entities (Player and Enemies)
 	var entities = get_tree().get_nodes_in_group("Player") + get_tree().get_nodes_in_group("Enemy")
-	for ent in entities:
-		if is_instance_valid(ent):
-			_collect_visual_nodes_recursive(ent, visuals_to_reflect)
+	var world_children = get_children()
 	
-	# Also scrape world-level skills (e.g. Chain Lightning lines)
-	for child in get_children():
-		# Protect against non-visual/non-positional nodes like AudioStreamPlayer
-		if not (child is Node2D): continue
-		if child.name.contains("Pond") or child.name.contains("Ref_") or child == player_light or child == moon_light: continue
-		_collect_visual_nodes_recursive(child, visuals_to_reflect)
-			
-	for vis in visuals_to_reflect:
-		if not is_instance_valid(vis) or not vis.visible or vis.modulate.a < 0.1: continue
-		
-		# Robust X-position detection for wide nodes like Line2D
-		var vis_x = vis.global_position.x
-		for pond in all_ponds:
-			# Skip if pond is off-screen Relative to player
-			if abs(pond.global_position.x - player.global_position.x) > 1200: continue
-			
-			# Ensure object is actually ABOVE the pond surface (prevents foreground trees reflecting downwards)
-			if vis.global_position.y > pond.global_position.y + 20: continue
-			
-			# Broad phase horizontal check
-			var dist_x = abs(vis_x - pond.global_position.x)
-			if dist_x > 400: continue # Slightly wider for lines
-
-			_reflect_node_in_pond(vis, pond, current_frame)
-			#break # Only reflect in one pond
-			
-	# 3. Mark-and-Sweep Cleanup
-	_prune_old_reflections(current_frame)
-
-func _collect_visual_nodes_recursive(root: Node, list: Array):
-	if root is Sprite2D or root is Line2D or root is Polygon2D:
-		if not root.name.contains("Ref_") and not root.name.contains("Reflection"):
-			list.append(root)
-	
-	for child in root.get_children():
-		_collect_visual_nodes_recursive(child, list)
-
-func _reflect_node_in_pond(vis: Node2D, pond: Node2D, frame: int):
-	var water = pond.get_node_or_null("PondWater")
-	if not water: return
-	var re_cont = water.get_node_or_null("Reflections")
-	if not re_cont: return
-	
-	var ref_name = "Ref_" + str(vis.get_instance_id())
-	var ref = re_cont.get_node_or_null(ref_name)
-	
-	if not ref:
-		if vis is Line2D:
-			ref = Line2D.new()
-			ref.width = vis.width
-			ref.texture = vis.texture
-			ref.texture_mode = vis.texture_mode
-			ref.material = vis.material
-		elif vis is Sprite2D:
-			ref = Sprite2D.new()
-			ref.texture = vis.texture
-			ref.hframes = vis.hframes
-			ref.vframes = vis.vframes
-		elif vis is Polygon2D:
-			ref = Polygon2D.new()
-			ref.polygon = vis.polygon
-			ref.color = vis.color
-		
-		if ref:
-			ref.name = ref_name
-			re_cont.add_child(ref)
-	
-	if ref:
-		ref.set_meta("last_f", frame)
-		
-		# Position Mapping
-		var pond_top_y = pond.global_position.y
-		var water_poly = water as Polygon2D
-		if water_poly:
-			var local_min_y = 0.0
-			for p in water_poly.polygon:
-				if p.y < local_min_y: local_min_y = p.y
-			pond_top_y += local_min_y
-
-		# Reflection Center Calculation with Feet Offset Awareness
-		var f_off = vis.get("feet_offset") if "feet_offset" in vis else 0.0
-		var vis_center_y = vis.global_position.y
-		
-		ref.global_position.x = vis.global_position.x
-		# Mirror logic: the distance from visual center to the pond surface
-		var dy = pond_top_y - (vis_center_y + f_off) 
-		# Reflection is pushed downwards by the same distance
-		ref.global_position.y = pond_top_y + dy + f_off
-		
-		# Visual State Sync
-		ref.visible = vis.visible
-		ref.modulate = Color(0.1, 0.4, 0.9, 0.4)
-		
-		if vis is Line2D:
-			ref.points = vis.points
-			ref.global_rotation = -vis.global_rotation
-			ref.scale.y = -1
-		if vis is Sprite2D:
-			# Clamp frame to avoid out-of-bounds when ref has fewer frames than vis
-			var max_frame = max(0, ref.hframes * ref.vframes - 1)
-			ref.frame = clamp(vis.frame, 0, max_frame)
-			ref.flip_h = vis.flip_h
-			ref.flip_v = !vis.flip_v
-			ref.scale = vis.scale
-			ref.offset = vis.offset
-		elif vis is Polygon2D:
-			ref.polygon = vis.polygon
-			ref.global_rotation = -vis.global_rotation
-			ref.scale.y = -vis.scale.y
-
-func _prune_old_reflections(frame: int):
-	for pond in all_ponds:
-		var water = pond.get_node_or_null("PondWater")
-		if not water: continue
-		var re_cont = water.get_node_or_null("Reflections")
-		if not re_cont: continue
-		for ref in re_cont.get_children():
-			if ref.has_meta("last_f"):
-				if ref.get_meta("last_f") < frame:
-					ref.queue_free()
-
-func _update_node_reflection(entity: Node2D, reflection: Node2D, pond: Node2D):
-	var active_sprite = null
-	if entity.has_method("get_active_sprite"):
-		active_sprite = entity.call("get_active_sprite")
-	elif "sprite" in entity:
-		active_sprite = entity.get("sprite")
-	
-	if active_sprite and active_sprite is Sprite2D and active_sprite.visible:
-		reflection.visible = true
-		var rs = reflection.get_node_or_null("Sprite")
-		if not rs:
-			rs = Sprite2D.new()
-			rs.name = "Sprite"
-			reflection.add_child(rs)
-		
-		# Mirroring math relative to pond's TOP surface
-		var pond_water = pond.get_node_or_null("PondWater")
-		var pond_surface_y = pond.global_position.y
-		if pond_water and pond_water is Polygon2D:
-			var local_min_y = 0.0
-			for p in pond_water.polygon:
-				if p.y < local_min_y: local_min_y = p.y
-			pond_surface_y += local_min_y # adjust to top edge
-			
-		reflection.global_position.x = entity.global_position.x
-		
-		var f_off = entity.get("feet_offset") if "feet_offset" in entity else 0.0
-		var vis_center_y = entity.global_position.y
-		var dy = pond_surface_y - (vis_center_y + f_off)
-		
-		reflection.global_position.y = pond_surface_y + dy + f_off
-		
-		rs.texture = active_sprite.texture
-		rs.hframes = active_sprite.hframes
-		rs.vframes = active_sprite.vframes
-		rs.frame = active_sprite.frame
-		rs.region_enabled = active_sprite.region_enabled
-		rs.region_rect = active_sprite.region_rect
-		rs.flip_h = active_sprite.flip_h
-		rs.flip_v = true
-		rs.scale = active_sprite.scale
-		rs.modulate = Color(0.1, 0.4, 0.9, 0.5)
-		rs.offset = active_sprite.offset
-
-		# ADD MOON REFLECTION IN POND
-		var moon_ref = reflection.get_node_or_null("MoonRef")
-		if not moon_ref and moon_light:
-			moon_ref = Sprite2D.new()
-			moon_ref.name = "MoonRef"
-			moon_ref.texture = moon_light.get_child(0).texture
-			reflection.add_child(moon_ref)
-		
-		if moon_ref and moon_light:
-			# Simple parallax reflection: offset based on pond pos vs moon pos
-			var rel_pos = (moon_light.global_position - pond.global_position)
-			moon_ref.position = -rel_pos.normalized() * 30.0
-			moon_ref.modulate = Color(1, 1, 1, 0.2)
-			moon_ref.scale = Vector2(0.4, 0.2) # Flattened on water
-		
-		# We don't hide the whole reflection if moon is missing
-		pass
-
-			
+	# Execute all heavy bounding box math, tree manipulation, and AABB sweeping natively in C++
+	reflection_manager.process_reflections(
+		all_ponds, 
+		reflection_nodes, 
+		entities, 
+		world_children, 
+		player, 
+		player_light, 
+		moon_light, 
+		Engine.get_process_frames(), 
+		SCREEN_HEIGHT
+	)
 
 func _ready():
 	_setup_wind_manager()
@@ -944,6 +729,16 @@ func _ready():
 	player_light.intensity = 0.46
 	add_child(player_light)
 	
+	# --- SETUP REFLECTION MANAGER ---
+	# We instance the C++ plugin node here, doing the heavy lifting Native
+	if ClassDB.class_exists("NativeReflectionManager"):
+		reflection_manager = NativeReflectionManager.new()
+		reflection_manager.name = "NativeReflectionManager"
+		add_child(reflection_manager)
+		print("[ShowSpectrum] NativeReflectionManager instance created.")
+	else:
+		print("[ShowSpectrum] ERROR: NativeReflectionManager not found in ClassDB! Ensure GDExtension is compiled.")
+
 	setup_reflections()
 	print("[ShowSpectrum] _ready complete.")
 

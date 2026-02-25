@@ -5,7 +5,7 @@ class_name AimComponent
 ## AimComponent
 ## Handles all aiming mouse → game interaction dispatch for the player.
 ## Called from PlayerController._on_aim_update() — keeps the match block out of PlayerController.
-var _player: PlayerController
+var _player
 var is_active: bool
 var aim_direction: Vector2
 var aim_indicator: Node2D
@@ -13,7 +13,7 @@ var aim_indicator: Node2D
 func _on_aim_direction_changed(direction):
 	aim_direction = direction
 
-func _init(player: PlayerController) -> void:
+func _init(player) -> void:
 	_player = player
 
 func _ready():

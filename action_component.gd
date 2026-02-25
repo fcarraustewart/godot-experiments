@@ -6,10 +6,10 @@ class_name ActionComponent
 ## Handles all action keybind → game interaction dispatch for the player.
 ## Called from PlayerController._on_input_action() — keeps the match block out of PlayerController.
 
-var _player: PlayerController
+var _player
 signal aim_direction_changed(direction: Vector2)
 
-func _init(player: PlayerController) -> void:
+func _init(player) -> void:
 	_player = player
 
 ## Main dispatch. Called by PlayerController._on_input_action().

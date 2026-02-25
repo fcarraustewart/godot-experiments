@@ -11,9 +11,9 @@ class_name KnockbackComponent
 
 var current_impulse: Vector2 = Vector2.ZERO
 
-var _parent: CharacterBody2D
+var _parent
 
-func _init(parent: CharacterBody2D) -> void:
+func _init(parent) -> void:
 	_parent = parent
 
 ## Apply an outward impulse. direction should be normalized.

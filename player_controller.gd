@@ -394,7 +394,7 @@ func _ready():
 	# Connect Internal Signals
 	interruption_component.interrupted.connect(_on_interruption)
 	
-	casting_component.cast_started.connect(func(_id, dur): 
+	casting_component.cast_started.connect(func(dur): 
 		print("[player_controller] recvd cast_started, emit -> cast_started.")
 		change_state(State.CASTING)
 	)

@@ -13,9 +13,9 @@ class_name MovementComponent
 
 # --- STATE ---
 var current_speed: float = 0.0  ## Read by parent if needed
-var _player: CharacterBody2D
+var _player
 
-func _init(player: CharacterBody2D) -> void:
+func _init(player) -> void:
 	_player = player
 
 ## Called every _physics_process from PlayerController.
