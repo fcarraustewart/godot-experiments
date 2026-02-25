@@ -1,5 +1,6 @@
 #include "register_types.h"
 #include "physics_manager.h"
+#include "reflection_manager.h"
 
 #include <gdextension_interface.h>
 #include <godot_cpp/core/defs.hpp>
@@ -13,6 +14,7 @@ void initialize_physics_module(ModuleInitializationLevel p_level) {
     }
 
     ClassDB::register_class<NativePhysicsManager>();
+    ClassDB::register_class<NativeReflectionManager>();
 }
 
 void uninitialize_physics_module(ModuleInitializationLevel p_level) {
