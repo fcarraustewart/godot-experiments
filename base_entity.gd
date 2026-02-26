@@ -59,8 +59,10 @@ func apply_hit(amount: float, source: Node2D):
 	change_state(State.HURT)
 	# Flash effect
 	modulate = Color(5, 5, 5, 1) # Bright flash
-	await get_tree().create_timer(0.1).timeout
-	modulate = Color(1, 1, 1, 1)
+	if is_inside_tree():
+		await get_tree().create_timer(0.1).timeout
+		if is_instance_valid(self):
+			modulate = Color(1, 1, 1, 1)
 
 func change_state(new_state: State):
 	if current_state == new_state: return

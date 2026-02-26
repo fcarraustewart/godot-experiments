@@ -5,7 +5,7 @@ extends Node
 # Inspired by death_chains but closer range and perspective-based.
 
 @export var DAMAGE = 5.0
-@export var UNIT_COUNT = 3
+@export var UNIT_COUNT = 64
 @export var LIFETIME = 1.8
 @export var REPEL_FORCE = 400.0
 
@@ -21,69 +21,50 @@ func cast_cleave(type: int):
 	
 	var swarm = BaseFlockSwarm.new()
 	swarm.unit_count = UNIT_COUNT
-	swarm.spawn_radius = 5.0
+	swarm.spawn_radius = 100.0
 	swarm.max_speed = 1000.0 # Fast burst
 	
 	# Swarm behavior weights
-	swarm.separation_weight = 1.5
-	swarm.alignment_weight = 0.5
-	swarm.cohesion_weight = 0.5
-	swarm.target_attraction_weight = 0.2
-	swarm.frequency = 4.0
-	swarm.damping = 0.5
+	swarm.separation_weight = 0.0
+	swarm.alignment_weight = -2.05
+	swarm.cohesion_weight = 4.05
+	swarm.target_attraction_weight = -10.2
+	swarm.frequency = 0.520
+	swarm.damping = 1.0
+	swarm.response = 0.0
 	
-	# Visual setup - Use specialized Cleave Swarm Unit
-	var unit_packer = PackedScene.new()
-	var unit_node = Node2D.new()
-	unit_node.set_script(load("res://flock_unit.gd"))
-	unit_packer.pack(unit_node)
-	swarm.unit_scene = unit_packer
+	# Visual setup
+	# swarm.texture = load("res://art/environment/leaf/leaf1.png")
+	swarm.unit_mesh_scale = Vector2(0.2, 0.2)
+	swarm.use_colors = true
+	swarm.debug_mode = true
 	
 	game_node.add_child(swarm)
-	
+
 	# Spawn from approximate left hand position
-	var offset = Vector2(30, -10) if player.facing_right else Vector2(-140, -10)
+	var offset = Vector2(1, -1) if player.facing_right else Vector2(-1, -1)
 	var spawn_pos = player.global_position + offset
 	swarm.global_position = spawn_pos
 	
-	# Force spawn units
+
 	swarm.spawn_flock()
+	
+	# Dispersion Tween for visuals
+	var t = create_tween()
+	t.parallel().tween_property(swarm, "unit_scale", 2.0, LIFETIME)
+	t.parallel().tween_property(swarm, "modulate:a", 0.5, LIFETIME)
+	t.parallel().tween_property(swarm, "target_attraction_weight", 0.9, LIFETIME * 0.5)
 	
 	# Dir for repulsion
 	var move_dir = Vector2.RIGHT if player.facing_right else Vector2.LEFT
 	
-	# Apply initial repulsion and tweening
-	for unit in swarm.members:
-		if not is_instance_valid(unit): continue
-		
-		# Give them a random burst direction in a cone
-		var angle = randf_range(-0.5, 0.5)
-		var burst = move_dir.rotated(angle) * REPEL_FORCE * randf_range(0.8, 1.2)
-		
-		# We can't set velocity directly because FlockUnit uses SecondOrderDynamics.
-		# But we can set the initial target position far away.
-		if unit.has_method("initialize_flock_unit"):
-			# Already initialized by swarm, let's nudge the simulation
-			var sim_id = unit.id
-			var current_pos = unit.global_position
-			PhysicsManager.set_second_order_target(sim_id, current_pos + burst)
-		
-		# Perspective Tweens
-		var tween = unit.create_tween().set_parallel(true)
-		if type == 1:
-			# Cast 1: Front to Back (Shrinks)
-			unit.scale = Vector2(0.8, 0.8)
-			tween.tween_property(unit, "scale", Vector2(0.3, 0.3), LIFETIME)
-			print("[CleaveSwarmCtrl] cast1")
-		else:
-			# Cast 2: Back to Front (Grows)
-			unit.scale = Vector2(0.1, 0.1)
-			tween.tween_property(unit, "scale", Vector2(0.8, 0.8), LIFETIME)
-			print("[CleaveSwarmCtrl] cast2")
-			
-		# Fade out
-		unit.modulate = Color(1.2, 1.3, 2.0, 1.0) # Glowing white-blue
-		tween.tween_property(unit, "modulate:a", 0.0, LIFETIME)
+	# For NativeSwarmManager, we'd need a way to set initial velocities or targets per unit
+	# For now, let's just use the swarm logic.
+	# If we want the scale/color tweens, we need to expose them in C++.
+	
+	# Perspective Tweens - This won't work easily with MultiMesh unless we animate uniform arrays.
+	# For this task, we focus on the physics migration.
+
 		
 	# Immediate Cleave Damage in front of player
 	_apply_cleave_damage()

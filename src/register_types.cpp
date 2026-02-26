@@ -1,9 +1,10 @@
 #include "register_types.h"
 #include "physics_manager.h"
 #include "reflection_manager.h"
+#include "swarm_manager.h"
 
 #include <gdextension_interface.h>
-#include <godot_cpp/core/defs.hpp>
+#include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/godot.hpp>
 
 using namespace godot;
@@ -15,6 +16,7 @@ void initialize_physics_module(ModuleInitializationLevel p_level) {
 
     ClassDB::register_class<NativePhysicsManager>();
     ClassDB::register_class<NativeReflectionManager>();
+    ClassDB::register_class<NativeSwarmManager>();
 }
 
 void uninitialize_physics_module(ModuleInitializationLevel p_level) {

@@ -107,10 +107,9 @@ func apply_slow(duration: int, slow_amount: float):
 func apply_root(duration: float):
 	emit_signal("rooted", duration)
 
-func _on_interruption(reason: BaseEntity.Reason):
-	print("[player_controller] detected cast interruption! Reason: %s" % BaseEntity.Reason.keys()[reason])
-	
-	casting_component.interrupt(reason)
+func _on_interruption(reason: BaseEntity.Reason):	
+	if current_state == State.CASTING: 
+		casting_component.interrupt(reason)
 
 	match(reason):		
 		BaseEntity.Reason.SILENCED, BaseEntity.Reason.KICKED:
@@ -395,7 +394,6 @@ func _ready():
 	interruption_component.interrupted.connect(_on_interruption)
 	
 	casting_component.cast_started.connect(func(dur): 
-		print("[player_controller] recvd cast_started, emit -> cast_started.")
 		change_state(State.CASTING)
 	)
 	casting_component.cast_done.connect(func():

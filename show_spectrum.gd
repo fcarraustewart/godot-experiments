@@ -637,23 +637,16 @@ func _ready():
 	var dust_swarm = BaseFlockSwarm.new()
 	dust_swarm.position = player.position + Vector2(0, -10)
 	
-	# Create a packed scene for the Dust Flock Unit
-	var dust_packer = PackedScene.new()
-	var dust_unit_node = Node2D.new()
-	dust_unit_node.set_script(load("res://flock_dust_unit.gd"))
-	dust_packer.pack(dust_unit_node)
-	
 	dust_swarm.unit_count = 8
 	dust_swarm.spawn_radius = 10
-	dust_swarm.separation_weight = 2.101   # High separation to keep them fluffy
+	dust_swarm.separation_weight = 2.101
 	dust_swarm.alignment_weight = -0.61
-	dust_swarm.cohesion_weight = -0.2    # Low cohesion so they drift a bit
+	dust_swarm.cohesion_weight = -0.2
 	dust_swarm.target_attraction_weight = 1.0
 	dust_swarm.frequency = 1.50
 	dust_swarm.damping = 1.00
-	dust_swarm.response = 0.0
-	dust_swarm.unit_scene = dust_packer
-	dust_swarm.target_node = dust_list[0] # Follow the axe for cool effect
+	dust_swarm.texture = load("res://dust_puff.png") # Placeholder for dust texture
+	dust_swarm.target_node = dust_list[0]
 	add_child(dust_swarm)
 		
 	# --- SETUP HUD ---
@@ -1083,12 +1076,15 @@ func _update_leaves(delta):
 			
 		# 1. Update Physics
 		l.velocity.y += leaf_gravity * delta
-		l.velocity.x = lerp(l.velocity.x, wind_power * leaf_wind_influence, delta * 2.0)
+		l.velocity.x = lerp(l.velocity.x, wind_power * leaf_wind_influence, delta * 1.5)
+		
+		# Air Damping for floaty feel
+		l.velocity *= 0.985 
 		
 		# Organic Swaying
-		l.phase += delta * 2.5
-		var sway = sin(l.phase) * l.sway_intensity
-		l.node.global_position += (l.velocity + Vector2(sway, 0)) * delta
+		l.phase += delta * 3.5
+		var sway_vel = cos(l.phase) * l.sway_intensity
+		l.node.global_position += (l.velocity + Vector2(sway_vel, 0)) * delta
 		l.node.rotation += l.rot_speed * delta
 		
 		# 2. Cleanup & Fade
@@ -1142,18 +1138,16 @@ func _create_tiled_area(pos: Vector2, width: float, z: int) -> Vector2:
 
 func _on_tile_stepped_on(tile):
 	if tile.type == tile.TileType.WITH_GRASS:
-		_spawn_grass_swarm(tile.global_position - Vector2(0, 16)) # Offset to top of tile
+		_spawn_grass_swarm(tile.global_position) # Offset to top of tile
 
 func _spawn_grass_swarm(pos: Vector2):
 	# User Request: Swarm with flockunit default
 	if pos == Vector2.ZERO:
 		print("[ShowSpectrum] WARNING: Attempted to spawn grass swarm at (0,0). Check tile position logic.")
 		return
-	if not player:
-		print("[ShowSpectrum] WARNING: Player node not found when spawning grass swarm.")
-		return
-	if player.position - pos > Vector2(1, 1) and player.position - pos < Vector2(-1, -1):
-		print("[ShowSpectrum] Skipping grass swarm spawn due to distance from player.")
+	# Skip if too far from player (dist check)
+	if player.global_position.distance_to(pos) > 250.0:
+		print("[ShowSpectrum] Skipping grass swarm spawn at ", pos, " - too far from player.", player.global_position)
 		return
 	var swarm_container = Node2D.new()
 	swarm_container.global_position = pos
@@ -1161,52 +1155,39 @@ func _spawn_grass_swarm(pos: Vector2):
 	
 	# Create Manager
 	var manager = BaseFlockSwarm.new()
-	manager.manual_spawn = true  # We spawn units manually below; skip unit_scene requirement
 	manager.target_node = player
-	manager.unit_count = 2
-	manager.target_attraction_weight = -0.005 # Dispersing
-	manager.max_speed = 1.0
-	manager.perception_radius = 10.0
-	manager.separation_weight = 2.5
-	manager.alignment_weight = -2.5
+	manager.unit_count = 6 # More units
+	manager.target_attraction_weight = -0.05 # Repulsion burst
+	manager.max_speed = 1.0 # Fast pop
+	manager.perception_radius = 50.0
+	manager.separation_weight = -2.00
+	manager.cohesion_weight = -2.9
+	manager.alignment_weight = 1.0
 	manager.spawn_radius = 10.0
-	manager.frequency = 4.8
-	manager.damping = 0.9
-	manager.response = 1.0
-	swarm_container.add_child(manager)
+	manager.frequency = 0.60 # Snappy
+	manager.damping = 0.4
 	
-	# Manually spawn units since we don't have a scene but want to use flock_unit.gd script
-	var units = []
-	var unit_script = load("res://flock_unit.gd")
-	for i in range(manager.unit_count):
-		var u = Node2D.new()
-		u.set_script(unit_script)
-		# Start exactly at tile pos
-		u.global_position = pos + Vector2(randf_range(-2, 2), randf_range(-2, 2))
-		# u.texture = load("res://art/environment/leaf/leaf1.png")
-		# u.frame = 0
-		# u.scale = Vector2(0.5, 0.5) * randf_range(0.8, 1.2)
-		# u.rotation = randf() * TAU
-		manager.add_child(u)
-		manager.members.append(u)
-		u.initialize_flock_unit(manager, i)
-		u.z_index = 11 # Above tiles and leaves
-		units.append(u)
-		
+	manager.unit_mesh_scale = Vector2(0.1, 0.1)
+	manager.use_colors = true
+	manager.debug_mode = true
+
+	swarm_container.add_child(manager)
+	manager.spawn_flock()
+	
 	# Swarm Life cycle
 	var t = create_tween()
-	t.tween_interval(0.6) # Short dispersion burst
+	t.tween_interval(0.4) # Short dispersion burst
 	t.tween_callback(func():
-		for u in units:
-			if is_instance_valid(u):
-				_spawn_leaf(u.global_position)
+		if is_instance_valid(manager):
+			for i in range(manager.get_unit_count()):
+				_spawn_leaf(manager.get_unit_position(i))
+			# Start fading out the swarm burst as independent leaves take over
+			create_tween().tween_property(manager, "modulate:a", 0.0, 0.2)
 	)
-	t.tween_interval(0.2) # Hold until clean
+	t.tween_interval(0.3) # Hold until clean
 	t.tween_callback(func():
-		for u in units:
-			if is_instance_valid(u):
-				u.queue_free()
-		swarm_container.queue_free()
+		if is_instance_valid(swarm_container):
+			swarm_container.queue_free()
 	)
 
 # ----------------------------

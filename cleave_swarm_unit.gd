@@ -9,8 +9,6 @@ func _ready():
 	# We don't call super._ready() because FlockUnit doesn't have one (it uses initialize)
 	
 	# Add the lightning impact visual
-	# impact_sprite = Sprite2D.new()
-	# impact_sprite.texture = load("res://art/lightning_impact.png")
 	
 	# # Assuming it might be a spritesheet (e.g. 4x4), but let's start with a single frame.
 	# # If it's too big, we scale it down.
@@ -24,7 +22,6 @@ func _ready():
 func _draw():
 	# Overriding _draw to remove the Cyan debug circles from the base FlockUnit
 	# If you want to keep them, leave this empty or call super._draw()
-	super._draw()
 	pass
 
 func _physics_process(delta):

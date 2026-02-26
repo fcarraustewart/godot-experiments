@@ -63,8 +63,7 @@ func _process(delta):
 	var currently_stepped_on = false
 	
 	if PhysicsManager:
-		# Check slightly above the tile for feet
-		# Standard detection: center X, top Y
+		# Check simulated objects (verlet entities)
 		for obj in PhysicsManager.simulated_objects:
 			if obj is Node2D:
 				var f_offset = 32.0
@@ -72,18 +71,27 @@ func _process(delta):
 					f_offset = obj.get_feet_offset()
 					
 				var feet_pos = obj.global_position + Vector2(0, f_offset) 
-				if abs(feet_pos.x - global_position.x) < 16 and abs(feet_pos.y - (global_position.y - 16)) < 8:
+				if abs(feet_pos.x - global_position.x) < 16 and abs(feet_pos.y - (global_position.y - 16)) < 12:
 					currently_stepped_on = true
 					break
 	
+	if not currently_stepped_on:
+		# Fallback: Check Player group directly
+		var players = get_tree().get_nodes_in_group("Player")
+		for p in players:
+			var feet_pos = p.global_position + Vector2(0, p.get_feet_offset() if p.has_method("get_feet_offset") else 32.0)
+			if abs(feet_pos.x - global_position.x) < 20 and abs(feet_pos.y - (global_position.y - 16)) < 15:
+				currently_stepped_on = true
+				break
+	
 	# 2. State Transition
 	if currently_stepped_on:
-		if state != TileState.STEPPED_ON:
+		if not was_stepped_on:
 			state = TileState.STEPPED_ON
 			_update_visuals()
 			emit_signal("stepped_on_tile", self)
 	else:
-		if state != TileState.IDLE:
+		if was_stepped_on:
 			state = TileState.IDLE
 			_update_visuals()
 	

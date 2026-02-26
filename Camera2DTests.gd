@@ -1,7 +1,7 @@
 extends Camera2D
 
 # Flock swarm test spawner
-var icon = preload("res://swarm_test.tscn")
+@export var spawn_unit: PackedScene
 @export var swarm_params: FlockParams = FlockParams.new()
 
 
@@ -15,6 +15,7 @@ var icon = preload("res://swarm_test.tscn")
 
 # Called when the node enters the scene tree for the first time.
 func _ready():
+	print("Camera2DTests ready")
 	pass # Replace with function body.
 
 
@@ -42,10 +43,16 @@ func _process(delta: float) -> void:
 				# Visual
 				s.unit_count = swarm_params.unit_count
 				s.spawn_radius = swarm_params.spawn_radius
+				s.debug_mode = swarm_params.debug_mode
+				s.sway_strength = swarm_params.sway_strength
+				s.sway_speed = swarm_params.sway_speed
 			
 	if Input.is_action_just_pressed("mouse"):
+		if not spawn_unit:
+			print("No spawn_unit assigned to Camera2DTests!")
+			return
 		print("spawn swarm AT MOUSE")
-		var icon_instance = icon.instantiate()
+		var icon_instance = spawn_unit.instantiate()
 		get_parent().add_child(icon_instance)
 		icon_instance.position = get_global_mouse_position()
 
@@ -67,16 +74,9 @@ func _process(delta: float) -> void:
 		# Spawn on position mouse click
 		swarm.position = icon_instance.position 
 		
-		# --- Initialize Flock ---
-		# We need to package the unit script as a PackedScene, or just assign it if the script handles new()
-		# Since base_flock_swarm expects a PackedScene, let's create a temporary one or modify it to accept scripts
-		# For now, let's just make a dummy packed scene wrapper
-		var unit_packer = PackedScene.new()
-		var unit_node = Node2D.new()
-		unit_node.set_script(load("res://flock_unit.gd"))
-		unit_packer.pack(unit_node)
-		swarm.unit_scene = unit_packer
-		
+		# Visual
+		# swarm.texture = load("res://art/environment/leaf/leaf1.png")
+		swarm.debug_mode = true
 		swarm.target_node = icon_instance.get_child(0) # Follow the axe
 		swarm.target_node.add_child(swarm)
 		

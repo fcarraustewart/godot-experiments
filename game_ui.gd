@@ -23,13 +23,13 @@ func _ready():
 	# --- BOTTOM WIDGET PANEL ---
 	var panel = Panel.new()
 	panel.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-	panel.custom_minimum_size = Vector2(500, 100)
+	panel.custom_minimum_size = Vector2(400, 70)
 	panel.position.y -= 20 # Padding from bottom
 	panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	# Style the panel (Dark transparent)
 	var style = StyleBoxFlat.new()
-	style.bg_color = Color(0.1, 0.1, 0.1, 0.8)
+	style.bg_color = Color(0.1, 0.1, 0.1, 0.2)
 	style.corner_radius_top_left = 10
 	style.corner_radius_top_right = 10
 	panel.add_theme_stylebox_override("panel", style)

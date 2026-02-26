@@ -8,7 +8,7 @@ var parent # BaseEntity but dynamic to access components
 var hit_count: int = 0
 var diminishing_return: float = 0.0
 
-func _on_cast_started(spell_id: String, duration: float):
+func _on_cast_started(duration: float):
 	# Reset hit count and diminishing return when a new cast starts
 	clear_hit_count()
 
