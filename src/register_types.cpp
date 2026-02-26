@@ -2,6 +2,8 @@
 #include "physics_manager.h"
 #include "reflection_manager.h"
 #include "swarm_manager.h"
+#include "parallax_manager.h"
+#include "performance_monitor.h"
 
 #include <gdextension_interface.h>
 #include <godot_cpp/core/class_db.hpp>
@@ -17,6 +19,8 @@ void initialize_physics_module(ModuleInitializationLevel p_level) {
     ClassDB::register_class<NativePhysicsManager>();
     ClassDB::register_class<NativeReflectionManager>();
     ClassDB::register_class<NativeSwarmManager>();
+    ClassDB::register_class<NativeParallaxManager>();
+    ClassDB::register_class<NativePerformanceMonitor>();
 }
 
 void uninitialize_physics_module(ModuleInitializationLevel p_level) {

@@ -177,29 +177,32 @@ func _update_visuals(delta):
 
 	# Determine intent to flip
 	if not is_turning:
-		if moving_right and sprite.flip_h: # Was looking left, now moving right
-			_start_turn(false) # flip_h false = looking right
-		elif moving_left and not sprite.flip_h: # Was looking right, now moving left
-			_start_turn(true) # flip_h true = looking left
+		if moving_right and sprite.flip_h:
+			_start_turn(false)
+		elif moving_left and not sprite.flip_h:
+			_start_turn(true)
+		
+		# If we have significant speed, ensure we stay in FLYING or DEACCEL
+		# to prevent "stationary" flicker during turns
+		if speed > 10.0:
+			if speed > 80.0:
+				_change_visual_state(OwlVisualState.FLYING, 6)
+			else:
+				_change_visual_state(OwlVisualState.DEACCEL, 4)
 	
-	# Determine Animation State (if not forced to turn)
-	if not is_turning:
+	# Determine Animation State (if not forced to turn or already set by movement)
+	if not is_turning and visual_state != OwlVisualState.FLYING and visual_state != OwlVisualState.DEACCEL:
 		if current_pet_state == PetState.ATTACK:
-			# When attacking, we use flying_right -> deaccel at the end
 			if is_instance_valid(target_entity):
 				var dist = global_position.distance_to(target_entity.global_position)
-				if dist < 80.0: # Close to target
+				if dist < 80.0:
 					_change_visual_state(OwlVisualState.DEACCEL, 4)
 				else:
 					_change_visual_state(OwlVisualState.FLYING, 6)
 			else:
 				_change_visual_state(OwlVisualState.STATIONARY, 5)
 		else:
-			if speed > 80.0:
-				_change_visual_state(OwlVisualState.FLYING, 6)
-			elif speed > 45.0:
-				_change_visual_state(OwlVisualState.DEACCEL, 4)
-			else:
+			if speed < 45.0:
 				_change_visual_state(OwlVisualState.STATIONARY, 5)
 
 	# Process Animation Frames

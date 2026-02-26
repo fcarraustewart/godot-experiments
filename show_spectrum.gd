@@ -72,8 +72,11 @@ var player_light: LightSpirit
 var moon_light: LightSpirit
 # -------------------------
 
-# --- UI ---
+# --- HUD & MANAGERS ---
 var game_ui
+var reflection_manager: NativeReflectionManager
+var parallax_manager: NativeParallaxManager
+var performance_monitor: NativePerformanceMonitor
 # ----------
 
 
@@ -271,7 +274,6 @@ func setup_grass():
 
 var reflection_nodes = {} # Map of original node -> reflection node
 var all_ponds = [] # Array to store pond containers
-var reflection_manager = null # Native C++ object for reflections
 
 func setup_ponds():
 	var water_shader = load("res://water.gdshader")
@@ -551,6 +553,9 @@ func _ready():
 	setup_ponds()
 	setup_platforms()
 	setup_tree_rays()
+	
+	setup_performance_monitor()
+	setup_parallax_background()
 	
 	print("[ShowSpectrum] _ready started.")
 	if CombatManager:
@@ -1190,3 +1195,67 @@ func _spawn_grass_swarm(pos: Vector2):
 	)
 
 # ----------------------------
+func setup_performance_monitor():
+	if ClassDB.class_exists("NativePerformanceMonitor"):
+		# Put it in a CanvasLayer to stay on screen
+		var hud = CanvasLayer.new()
+		hud.name = "PerformanceHUD"
+		add_child(hud)
+
+		performance_monitor = NativePerformanceMonitor.new()
+		performance_monitor.name = "NativePerformanceMonitor"
+		# Position it at top right
+		var viewport_size = get_viewport_rect().size
+		performance_monitor.position = Vector2(viewport_size.x - 210, 10)
+		hud.add_child(performance_monitor)
+		print("[ShowSpectrum] NativePerformanceMonitor initialized.")
+	else:
+		print("[ShowSpectrum] NativePerformanceMonitor not found, skipping performance HUD.")
+
+func setup_parallax_background():
+	if not ClassDB.class_exists("NativeParallaxManager"):
+		print("[ShowSpectrum] NativeParallaxManager not found, skipping parallax.")
+		return
+		
+	parallax_manager = NativeParallaxManager.new()
+	parallax_manager.name = "NativeParallaxManager"
+	parallax_manager.camera_node = $Camera2D
+	add_child(parallax_manager)
+	
+	# Try to find background layers in the provided path
+	var bg_dir = "res://art/environment/parallax-background/"
+	var layers = [
+		{"name": "bg_far.png", "factor": Vector2(0.1, 0.05)},
+		{"name": "bg_mid.png", "factor": Vector2(0.3, 0.1)},
+		{"name": "bg_near.png", "factor": Vector2(0.5, 0.2)}
+	]
+	
+	for layer_info in layers:
+		var tex = load(bg_dir + layer_info.name)
+		if tex:
+			# Ensure texture repeats
+			tex.setup_local_to_scene() # In case we need to tweak flags at runtime
+			
+			var sprite = Sprite2D.new()
+			sprite.texture = tex
+			sprite.centered = false
+			
+			# Enable Region to allow infinite scrolling wrap-around
+			sprite.region_enabled = true
+			# Create a region MUCH larger than the screen (e.g., 20 screen widths)
+			var w_mult = 20.0
+			sprite.region_rect = Rect2(0, 0, tex.get_width() * w_mult, tex.get_height())
+			
+			# Scale up 320x180 based on screen height (360 base)
+			var s = 2.0 # Perfect 2x integer scale
+			sprite.scale = Vector2(s, s)
+			
+			# Center relative to start
+			sprite.position = Vector2(-tex.get_width() * s * w_mult / 2.0, SCREEN_HEIGHT / 2.0 - (tex.get_height() * s / 2.0))
+			
+			# Put it way back
+			sprite.z_index = -150
+			add_child(sprite)
+			
+			parallax_manager.add_layer(sprite, layer_info.factor)
+			print("[ShowSpectrum] Added LOOPING parallax layer: ", layer_info.name)
