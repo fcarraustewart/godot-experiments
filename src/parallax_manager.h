@@ -12,6 +12,8 @@ struct ParallaxLayer {
     Node2D* node = nullptr;
     Vector2 factor;
     Vector2 base_pos;
+    Vector2 auto_speed;
+    Vector2 current_auto_offset;
 };
 
 class NativeParallaxManager : public Node2D {
@@ -34,6 +36,7 @@ public:
     void _process(double delta) override;
 
     void add_layer(Node2D* p_node, Vector2 p_factor);
+    void add_layer_ext(Node2D* p_node, Vector2 p_factor, Vector2 p_auto_speed);
     void remove_layer(Node2D* p_node);
     
     void set_camera_node(Node2D* p_cam) { camera_node = p_cam; }

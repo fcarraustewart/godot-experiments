@@ -651,7 +651,8 @@ func _ready():
 	dust_swarm.target_attraction_weight = 1.0
 	dust_swarm.frequency = 1.50
 	dust_swarm.damping = 1.00
-	dust_swarm.texture = load("res://dust_puff.png") # Placeholder for dust texture
+	# dust_swarm.texture = load("res://dust_puff.png") # Placeholder for dust texture
+	dust_swarm.debug_mode = true
 	dust_swarm.target_node = dust_list[0]
 	add_child(dust_swarm)
 		
@@ -677,6 +678,7 @@ func _ready():
 			# Connect Player Signals for FX
 			player.casting_component.cast_started.connect(_on_player_cast_start)
 			player.casting_component.cast_done.connect(_on_player_cast_finished)
+			pass
 	else:
 		print("[ShowSpectrum] WARNING: Camera2D node not found!")
 	# -----------------
@@ -792,7 +794,6 @@ func _process(delta):
 		update_reflections()
 	update_light_effects(delta)
 
-
 	# --- LIGHTNING LOGIC (Background) ---
 	lightning_timer += delta
 	if lightning_timer > time_until_next_lightning:
@@ -825,9 +826,6 @@ func _process(delta):
 
 	var data = []
 	var prev_hz = 0
-	
-	# Run your color/math logic
-	# _process_my_orbit_circles()
 	
 	# --- SPECTRUM LOGIC ---
 	if spectrum:
@@ -1059,7 +1057,7 @@ func _spawn_leaf(pos: Vector2):
 		"node": leaf,
 		"velocity": Vector2(randf_range(-40, 40), randf_range(20, 50)),
 		"rot_speed": randf_range(-3.0, 3.0),
-		"life": randf_range(5.0, 8.0),
+		"life": randf_range(0.5, 2.0),
 		"phase": randf() * TAU,
 		"sway_intensity": randf_range(30.0, 60.0)
 	}
@@ -1186,7 +1184,7 @@ func _spawn_grass_swarm(pos: Vector2):
 			# Start fading out the swarm burst as independent leaves take over
 			create_tween().tween_property(manager, "modulate:a", 0.0, 0.2)
 	)
-	t.tween_interval(0.3) # Hold until clean
+	t.tween_interval(0.1) # Hold until clean
 	t.tween_callback(func():
 		if is_instance_valid(swarm_container):
 			swarm_container.queue_free()
@@ -1211,6 +1209,7 @@ func setup_performance_monitor():
 		print("[ShowSpectrum] NativePerformanceMonitor not found, skipping performance HUD.")
 
 func setup_parallax_background():
+	return # this version uses old background
 	if not ClassDB.class_exists("NativeParallaxManager"):
 		print("[ShowSpectrum] NativeParallaxManager not found, skipping parallax.")
 		return
@@ -1220,40 +1219,48 @@ func setup_parallax_background():
 	parallax_manager.camera_node = $Camera2D
 	add_child(parallax_manager)
 	
-	# Try to find background layers in the provided path
+	# Provided textures: 0 (background) to 4 (foreground)
 	var bg_dir = "res://art/environment/parallax-background/"
-	var layers = [
-		{"name": "bg_far.png", "factor": Vector2(0.1, 0.05)},
-		{"name": "bg_mid.png", "factor": Vector2(0.3, 0.1)},
-		{"name": "bg_near.png", "factor": Vector2(0.5, 0.2)}
+	var layers_config = [
+		{"name": "ParallaxMountainBackground - 0.png", "factor": Vector2(0.05, 0.02), "z": - 4},
+		{"name": "ParallaxMountainBackground - 1.png", "factor": Vector2(0.12, 0.04), "z": - 3},
+		{"name": "ParallaxMountainBackground - 2.png", "factor": Vector2(0.25, 0.08), "z": - 2},
+		{"name": "ParallaxMountainBackground - 3.png", "factor": Vector2(0.50, 0.15), "z": - 1},
+		{"name": "ParallaxMountainBackground - 4.png", "factor": Vector2(-1.15, 0.25), "z": 1000} # Foreground!
 	]
 	
-	for layer_info in layers:
+	for layer_info in layers_config:
 		var tex = load(bg_dir + layer_info.name)
 		if tex:
-			# Ensure texture repeats
-			tex.setup_local_to_scene() # In case we need to tweak flags at runtime
-			
 			var sprite = Sprite2D.new()
 			sprite.texture = tex
 			sprite.centered = false
 			
+			# Enable Repeat for infinite scrolling
+			sprite.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
+			sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST # Pixel art style
+			
 			# Enable Region to allow infinite scrolling wrap-around
 			sprite.region_enabled = true
-			# Create a region MUCH larger than the screen (e.g., 20 screen widths)
-			var w_mult = 20.0
+			# Create a massive horizontal region (e.g. 50 screen widths)
+			var w_mult = 100.0
 			sprite.region_rect = Rect2(0, 0, tex.get_width() * w_mult, tex.get_height())
 			
-			# Scale up 320x180 based on screen height (360 base)
-			var s = 2.0 # Perfect 2x integer scale
+			# Scale up to match our 360p height (layers seem to be 180px high based on previous code)
+			var s = 2.0
 			sprite.scale = Vector2(s, s)
 			
-			# Center relative to start
-			sprite.position = Vector2(-tex.get_width() * s * w_mult / 2.0, SCREEN_HEIGHT / 2.0 - (tex.get_height() * s / 2.0))
+			# Initial Offset: Center the massive region horizontally
+			var total_width = tex.get_width() * s * w_mult
+			sprite.position = Vector2(-total_width / 2.0, -180) # Adjust Y as needed
 			
-			# Put it way back
-			sprite.z_index = -150
+			sprite.z_index = layer_info.z
 			add_child(sprite)
 			
-			parallax_manager.add_layer(sprite, layer_info.factor)
-			print("[ShowSpectrum] Added LOOPING parallax layer: ", layer_info.name)
+			# Add subtle wind/drift speed (negative X = moving left)
+			# Slower for farther layers
+			var wind_speed = Vector2(-2.0 * abs(layer_info.z) / 200.0, 0)
+			if layer_info.z > 0: wind_speed = Vector2.ZERO # Foreground stays still
+			
+			parallax_manager.add_layer_ext(sprite, layer_info.factor, wind_speed)
+			print("[ShowSpectrum] Added parallax layer: ", layer_info.name, " (Wind: ", wind_speed.x, ")")

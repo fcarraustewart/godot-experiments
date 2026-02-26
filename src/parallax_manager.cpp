@@ -8,6 +8,7 @@ NativeParallaxManager::~NativeParallaxManager() {}
 
 void NativeParallaxManager::_bind_methods() {
     ClassDB::bind_method(D_METHOD("add_layer", "node", "factor"), &NativeParallaxManager::add_layer);
+    ClassDB::bind_method(D_METHOD("add_layer_ext", "node", "factor", "auto_speed"), &NativeParallaxManager::add_layer_ext);
     ClassDB::bind_method(D_METHOD("remove_layer", "node"), &NativeParallaxManager::remove_layer);
     
     ClassDB::bind_method(D_METHOD("set_camera_node", "camera"), &NativeParallaxManager::set_camera_node);
@@ -24,11 +25,17 @@ void NativeParallaxManager::_bind_methods() {
 }
 
 void NativeParallaxManager::add_layer(Node2D* p_node, Vector2 p_factor) {
+    add_layer_ext(p_node, p_factor, Vector2(0, 0));
+}
+
+void NativeParallaxManager::add_layer_ext(Node2D* p_node, Vector2 p_factor, Vector2 p_auto_speed) {
     if (!p_node) return;
     ParallaxLayer layer;
     layer.node = p_node;
     layer.factor = p_factor;
     layer.base_pos = p_node->get_position();
+    layer.auto_speed = p_auto_speed;
+    layer.current_auto_offset = Vector2(0, 0);
     layers.push_back(layer);
 }
 
@@ -50,10 +57,13 @@ void NativeParallaxManager::_process(double delta) {
     for (auto &layer : layers) {
         if (!layer.node || !layer.node->is_inside_tree()) continue;
 
-        Vector2 offset = Vector2(0, 0);
-        if (follow_horizontal) offset.x = cam_pos.x * layer.factor.x;
-        if (follow_vertical) offset.y = cam_pos.y * layer.factor.y;
+        // Apply auto-scrolling
+        layer.current_auto_offset += layer.auto_speed * (float)delta;
         
-        layer.node->set_position(layer.base_pos + offset);
+        Vector2 parallax_offset = Vector2(0, 0);
+        if (follow_horizontal) parallax_offset.x = cam_pos.x * layer.factor.x;
+        if (follow_vertical) parallax_offset.y = cam_pos.y * layer.factor.y;
+        
+        layer.node->set_position(layer.base_pos + parallax_offset + layer.current_auto_offset);
     }
 }

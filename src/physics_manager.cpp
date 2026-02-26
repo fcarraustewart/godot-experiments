@@ -33,7 +33,7 @@ void NativePhysicsManager::_physics_process(double delta) {
 
             Vector2 vel = (body.points[i] - body.prev_points[i]) * 0.95f; // Damping
             body.prev_points[i] = body.points[i];
-            body.points[i] += vel + (grav_vec + body.forces) * delta;
+            body.points[i] += vel + (grav_vec * body.gravity_scale + body.forces) * delta;
         }
 
         // Step 2: Constraints (Relaxation)
@@ -147,6 +147,15 @@ void NativePhysicsManager::set_soft_body_prev_points(String id, Array prev_point
     }
 }
 
+void NativePhysicsManager::set_soft_body_gravity_scale(String id, float scale) {
+    for (auto &body : soft_bodies) {
+        if (body.id == id) {
+            body.gravity_scale = scale;
+            break;
+        }
+    }
+}
+
 void NativePhysicsManager::unregister_object(Dictionary sim_dict) {
     String id = sim_dict.get("id", "");
     String type = sim_dict.get("type", "");
@@ -229,6 +238,7 @@ void NativePhysicsManager::_bind_methods() {
     ClassDB::bind_method(D_METHOD("apply_soft_body_force", "id", "force"), &NativePhysicsManager::apply_soft_body_force);
     ClassDB::bind_method(D_METHOD("get_soft_body_points", "id"), &NativePhysicsManager::get_soft_body_points);
     ClassDB::bind_method(D_METHOD("set_soft_body_prev_points", "id", "prev_points"), &NativePhysicsManager::set_soft_body_prev_points);
+    ClassDB::bind_method(D_METHOD("set_soft_body_gravity_scale", "id", "scale"), &NativePhysicsManager::set_soft_body_gravity_scale);
 
     ClassDB::bind_method(D_METHOD("unregister_object", "sim_dict"), &NativePhysicsManager::unregister_object);
     

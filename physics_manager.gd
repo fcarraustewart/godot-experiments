@@ -240,6 +240,14 @@ func set_soft_body_prev_points(id: String, prev_points: Array):
 			body.prev_points = prev_points
 			break
 
+func set_soft_body_gravity_scale(id: String, scale: float):
+	if native_manager:
+		native_manager.set_soft_body_gravity_scale(id, scale)
+		return
+		
+	# Fallback logic not implemented for dictionary bodies yet, 
+	# but native is the primary path.
+
 func unregister_soft_body(id: String):
 	for i in range(simulated_objects.size() - 1, -1, -1):
 		var body = simulated_objects[i]

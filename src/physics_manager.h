@@ -24,6 +24,7 @@ struct SoftBodySim {
     std::vector<Vector2> prev_points;
     float constraint_dist;
     Vector2 forces;
+    float gravity_scale = 1.0f;
     std::map<int, Vector2> anchors;
 };
 
@@ -51,6 +52,7 @@ public:
     void apply_soft_body_force(String id, Vector2 force);
     Array get_soft_body_points(String id);
     void set_soft_body_prev_points(String id, Array prev_points);
+    void set_soft_body_gravity_scale(String id, float scale);
 
     // GDExtension API
     Dictionary register_second_order(String id, Vector2 pos, float f, float zeta, float r);

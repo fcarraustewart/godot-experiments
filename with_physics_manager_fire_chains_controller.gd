@@ -147,7 +147,8 @@ func _spawn_physics_chain(start_pos: Vector2, target: Node2D, spread: float, fro
 
 	# Register with the separate Manager
 	var body_id = "fire_chain_" + str(line.get_instance_id())
-	var body = PhysicsManager.register_soft_body(body_id, points, 6.5) # Slightly longer constraints
+	var body = PhysicsManager.register_soft_body(body_id, points, 2.5) # Slightly longer constraints
+	PhysicsManager.set_soft_body_gravity_scale(body_id, 0.0) # No gravity, we control it fully
 	
 	# Apply the initial "Whip Blast"
 	var burst_dir = (initial_target_pos - start_anchor).normalized()
