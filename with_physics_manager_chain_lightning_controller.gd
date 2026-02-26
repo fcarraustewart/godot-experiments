@@ -6,7 +6,7 @@ extends Node
 
 # --- SETTINGS ---
 var chain_cooldown = 0.0
-var CHAIN_COOLDOWN_MAX = 3.0 
+var CHAIN_COOLDOWN_MAX = 3.0
 var CHAIN_RANGE = 500.0
 var CHAIN_JUMPS = 3
 var CHAIN_DMG_DECAY = 0.8
@@ -95,7 +95,7 @@ func start_charging(source: Vector2, target):
 	current_target = target
 	
 	charge_effect_node = Node2D.new()
-	var charge_circle = Polygon2D.new() 
+	var charge_circle = Polygon2D.new()
 	var points = PackedVector2Array()
 	for i in range(16):
 		var angle = i * TAU / 16.0
@@ -141,7 +141,7 @@ func _execute_chain(start: Vector2, target: Node2D, jumps: int, power: float, is
 		# Overload Validation
 		var success = CombatManager.request_interaction(get_parent(), target, "damage", {"amount": 0, "range": CHAIN_RANGE, "proc": true, "type_of_proc": "overload"})
 		if success:
-			_spawn_lightning_beam(get_parent().position + Vector2(randf()*20, randf()*20), target, power * 0.5)
+			_spawn_lightning_beam(get_parent().position + Vector2(randf() * 20, randf() * 20), target, power * 0.5)
 		else:
 			return
 
@@ -159,7 +159,7 @@ func _execute_chain(start: Vector2, target: Node2D, jumps: int, power: float, is
 
 func _spawn_lightning_beam(from: Vector2, target: Node2D, power: float):
 	var line = Line2D.new()
-	line.width = 60.0 * power 
+	line.width = 60.0 * power
 	line.texture_mode = Line2D.LINE_TEXTURE_STRETCH
 	line.material = ShaderMaterial.new()
 	line.material.shader = load("res://chain_lightning.gdshader")
@@ -174,15 +174,17 @@ func _spawn_lightning_beam(from: Vector2, target: Node2D, power: float):
 	var num_points = 8 # Less points for sharp lightning
 	var points = []
 	for j in range(num_points):
-		points.append(from.lerp(target.position, float(j)/(num_points-1)))
+		points.append(from.lerp(target.position, float(j) / (num_points - 1)))
 
 	# Register as high-tension beam
-	var body = PhysicsManager.register_soft_body("bolt_" + str(line.get_instance_id()), points, 10.0)
+	var body_id = "bolt_" + str(line.get_instance_id())
+	var body = PhysicsManager.register_soft_body(body_id, points, 10.0)
 	
 	active_beams.append({
 		"line": line,
 		"target": target,
-		"physics_body": body,
+		"body_id": body_id,
+		"num_points": num_points,
 		"static_start": from, # Usually the hand or previous enemy
 		"timer": 0.4, # Bolts disappear fast
 		"power": power
@@ -191,26 +193,33 @@ func _spawn_lightning_beam(from: Vector2, target: Node2D, power: float):
 func _update_visual_beams(delta):
 	for i in range(active_beams.size() - 1, -1, -1):
 		var b = active_beams[i]
+		var body_id = b.body_id
 		b.timer -= delta
 		
 		if b.timer <= 0 or not is_instance_valid(b.target):
-			PhysicsManager.unregister_object(b.physics_body)
+			PhysicsManager.unregister_object({"id": body_id, "type": "SOFT_BODY"})
 			b.line.queue_free()
 			active_beams.remove_at(i)
 			continue
 
 		# Snap physics anchors
-		b.physics_body.anchors[0] = b.static_start
-		b.physics_body.anchors[b.physics_body.points.size()-1] = b.target.position
+		var anchors = {
+			0: b.static_start,
+			b.num_points - 1: b.target.position
+		}
+		PhysicsManager.update_soft_body_anchors(body_id, anchors)
 		
 		# Give a slight 'upward' magic gravity for arcing
-		b.physics_body.forces = Vector2(0, -800) 
+		PhysicsManager.apply_force(body_id, Vector2(0, -1200))
 
 		# Draw with shader-flicker
+		var pts = PhysicsManager.get_body_data(body_id)
+		if pts.size() == 0: continue
+		
 		b.line.clear_points()
-		for p in b.physics_body.points:
+		for p in pts:
 			# Random jitter per point for 'electric' feel
-			var jitter = Vector2(randf_range(-5,5), randf_range(-5,5)) * b.power
+			var jitter = Vector2(randf_range(-5, 5), randf_range(-5, 5)) * b.power
 			b.line.add_point(p + jitter)
 		
 		# Fade out bolt

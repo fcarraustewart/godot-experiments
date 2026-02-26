@@ -39,7 +39,6 @@ func _ready():
 			flip_h = is_flipped
 		TileType.WITH_GRASS:
 			texture = TEX_GRASS_IDLE
-			# TEX_GRASS_IDLE has 5 frames, TEX_GRASS_STEPPED has 7
 			hframes = 5
 			vframes = 1
 			frame = 0
@@ -52,47 +51,45 @@ func _ready():
 	
 	var col = CollisionShape2D.new()
 	var shape = RectangleShape2D.new()
-	shape.size = Vector2(32, 32)
+	shape.size = Vector2(32, 28)
 	col.shape = shape
-	# Tile is 32x32 centered. Bottom is +16.
 	static_body.add_child(col)
 
-func _process(delta):
-	# PERFORMANCE GUARD: skip if too far away
-	var _players = get_tree().get_nodes_in_group("Player")
-	if not _players: return
+	# --- SETUP DETECTION AREA (Replacement for _process polling) ---
+	var area = Area2D.new()
+	area.name = "DetectionArea"
+	# Collision logic: only detect entities
+	area.collision_mask = 1 # Layer 1 usually entities
+	add_child(area)
+	
+	var area_col = CollisionShape2D.new()
+	var area_shape = RectangleShape2D.new()
+	area_shape.size = Vector2(28, 12) # detection box at the TOP surface
+	area_col.shape = area_shape
+	# Position detection box slightly ABOVE the top
+	area_col.position = Vector2(0, -18)
+	area.add_child(area_col)
+	
+	area.body_entered.connect(_on_body_entered)
+	area.body_exited.connect(_on_body_exited)
 
-	if _players.size() > 0:
-		if _players[0].global_position.distance_to(global_position) > 300.0:
-			return
-			
-	# 1. Detection: Check if any entity is on top of this tile
+var _stepped_bodies = []
+
+func _on_body_entered(body):
+	if body is StaticBody2D: return # Ignore self/other tiles
+	if not body in _stepped_bodies:
+		_stepped_bodies.append(body)
+		_update_step_state()
+
+func _on_body_exited(body):
+	if body in _stepped_bodies:
+		_stepped_bodies.erase(body)
+		_update_step_state()
+
+func _update_step_state():
 	var was_stepped_on = (state == TileState.STEPPED_ON)
-	var currently_stepped_on = false
+	var currently_stepped_on = _stepped_bodies.size() > 0
 	
-	if PhysicsManager:
-		# Check simulated objects (verlet entities)
-		for obj in PhysicsManager.simulated_objects:
-			if obj is Node2D:
-				var f_offset = 32.0
-				if obj.has_method("get_feet_offset"):
-					f_offset = obj.get_feet_offset()
-					
-				var feet_pos = obj.global_position + Vector2(0, f_offset)
-				if abs(feet_pos.x - global_position.x) < 16 and abs(feet_pos.y - (global_position.y - 16)) < 12:
-					currently_stepped_on = true
-					break
-	
-	if not currently_stepped_on:
-		# Fallback: Check Player group directly
-		var players = get_tree().get_nodes_in_group("Player")
-		for p in players:
-			var feet_pos = p.global_position + Vector2(0, p.get_feet_offset() if p.has_method("get_feet_offset") else 32.0)
-			if abs(feet_pos.x - global_position.x) < 20 and abs(feet_pos.y - (global_position.y - 16)) < 15:
-				currently_stepped_on = true
-				break
-	
-	# 2. State Transition
 	if currently_stepped_on:
 		if not was_stepped_on:
 			state = TileState.STEPPED_ON
@@ -102,10 +99,11 @@ func _process(delta):
 		if was_stepped_on:
 			state = TileState.IDLE
 			_update_visuals()
-	
-	# 3. Animation for Grass
+
+func _process(delta):
+	# 3. Animation for Grass (Keep only the light visual loop)
 	if type == TileType.WITH_GRASS:
-		anim_timer += delta * 12.0 # Animation speed
+		anim_timer += delta * 12.0
 		frame = int(anim_timer) % frame_count
 
 func _update_visuals():

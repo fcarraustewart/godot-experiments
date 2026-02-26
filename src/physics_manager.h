@@ -6,6 +6,7 @@
 #include <godot_cpp/variant/string.hpp>
 #include <godot_cpp/variant/vector2.hpp>
 #include <vector>
+#include <map>
 
 namespace godot {
 
@@ -17,13 +18,23 @@ struct SecondOrderSim {
     float k1, k2, k3;
 };
 
+struct SoftBodySim {
+    String id;
+    std::vector<Vector2> points;
+    std::vector<Vector2> prev_points;
+    float constraint_dist;
+    Vector2 forces;
+    std::map<int, Vector2> anchors;
+};
+
 class NativePhysicsManager : public Node {
     GDCLASS(NativePhysicsManager, Node);
 
 private:
     std::vector<SecondOrderSim> sims;
-    float gravity = -800.0f; // Matching your GDScript gravity
-    float floor_y = 450.0f;  // Matching your default floor
+    std::vector<SoftBodySim> soft_bodies;
+    float gravity = 800.0f; 
+    float floor_y = 450.0f;  
 
 protected:
     static void _bind_methods();
@@ -34,6 +45,13 @@ public:
 
     void _physics_process(double delta) override;
     
+    // Soft Body API
+    Dictionary register_soft_body(String id, Array points, float constraint_dist);
+    void update_soft_body_anchors(String id, Dictionary anchors);
+    void apply_soft_body_force(String id, Vector2 force);
+    Array get_soft_body_points(String id);
+    void set_soft_body_prev_points(String id, Array prev_points);
+
     // GDExtension API
     Dictionary register_second_order(String id, Vector2 pos, float f, float zeta, float r);
     void unregister_object(Dictionary sim_dict);

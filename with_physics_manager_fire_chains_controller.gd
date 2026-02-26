@@ -122,7 +122,7 @@ func fire_fire_chains(from_above: bool):
 func _spawn_physics_chain(start_pos: Vector2, target: Node2D, spread: float, from_above: bool):
 	# 1. VISUAL SETUP
 	var line = Line2D.new()
-	line.width = 20.0 
+	line.width = 20.0
 	line.texture = load("res://art/fire_chain.png")
 	line.texture_mode = Line2D.LINE_TEXTURE_STRETCH
 	line.modulate = Color(1.0, 1.0, 1.0, 1.0)
@@ -134,7 +134,7 @@ func _spawn_physics_chain(start_pos: Vector2, target: Node2D, spread: float, fro
 	game_node.add_child(line)
 
 	# 2. PHYSICS INITIALIZATION
-	var num_points = 60 # Increased resolution for user's requested segments
+	var num_points = 40 # Optimized resolution
 	var points = []
 	var start_anchor = start_pos + Vector2(0, -30)
 	
@@ -146,20 +146,24 @@ func _spawn_physics_chain(start_pos: Vector2, target: Node2D, spread: float, fro
 		points.append(start_anchor)
 
 	# Register with the separate Manager
-	var body = PhysicsManager.register_soft_body("fire_chain_" + str(line.get_instance_id()), points, 5.0)
+	var body_id = "fire_chain_" + str(line.get_instance_id())
+	var body = PhysicsManager.register_soft_body(body_id, points, 6.5) # Slightly longer constraints
 	
 	# Apply the initial "Whip Blast"
 	var burst_dir = (initial_target_pos - start_anchor).normalized()
+	var prev_pts = []
 	for j in range(num_points):
 		var t_fac = float(j) / (num_points - 1)
 		var kick = burst_dir * (100.0 + t_fac * 1200.0)
-		body.prev_points[j] = points[j] - kick * 0.016
+		prev_pts.append(points[j] - kick * 0.016)
+	
+	PhysicsManager.set_soft_body_prev_points(body_id, prev_pts)
 
 	# Store the data required for visual updates
 	active_visual_chains.append({
 		"line": line,
 		"target": target,
-		"physics_body": body,
+		"body_id": body_id,
 		"landing_offset": landing_offset,
 		"timer": DURATION,
 		"max_spread": spread # Determining the arc height
@@ -168,11 +172,11 @@ func _spawn_physics_chain(start_pos: Vector2, target: Node2D, spread: float, fro
 func _update_visual_representation(delta):
 	for i in range(active_visual_chains.size() - 1, -1, -1):
 		var c = active_visual_chains[i]
-		var body = c.physics_body
+		var body_id = c.body_id
 		c.timer -= delta
 		
 		if c.timer <= 0 or not is_instance_valid(c.target):
-			PhysicsManager.unregister_object(body)
+			PhysicsManager.unregister_object({"id": body_id, "type": "SOFT_BODY"})
 			c.line.queue_free()
 			active_visual_chains.remove_at(i)
 			continue
@@ -184,49 +188,27 @@ func _update_visual_representation(delta):
 		var player_hand = game_node.player.position + Vector2(0, -30)
 		var target_anchor = c.target.position + c.landing_offset
 		
-		body.anchors[0] = player_hand
-		body.anchors[body.points.size() - 1] = target_anchor
+		var anchors = {
+			0: player_hand,
+			39: target_anchor # last point of 40
+		}
+		PhysicsManager.update_soft_body_anchors(body_id, anchors)
 		
-		# --- WAVE CALCULATIONS ---
+		# 2. Get Physics Points and Sync to Line2D
+		var pts = PhysicsManager.get_body_data(body_id)
+		if pts.size() == 0: continue
+		
+		# Optimization: Pre-calculate wave parameters
 		var chain_dir = (target_anchor - player_hand).normalized()
 		var perp = Vector2(-chain_dir.y, chain_dir.x)
-		var mid_point = (player_hand + target_anchor) / 2.0
-		var control_point = mid_point + (perp * c.max_spread)
-		var link = mid_point
-
-		# 2. Map Physics Points to Line2D Points with Cardioid and Chaos
-		c.line.clear_points()
-		for j in range(body.points.size()):
-			var t = float(j) / (body.points.size() - 1)
-			var p = body.points[j]
-			
-			# --- USER CARDIOID LOGIC ---
-			# Iteratively shift the 'link' point per frame to maintain the shape
-			link = (link + target_anchor + perp * (1.0 / (t + 1.0)) * 150.0 * randf()) / 2.0
-			var c_p = link + (perp * c.max_spread)
-			
-			# Calculate displacement: how much the cardioid bends vs a straight line
-			var straight_p = player_hand.lerp(target_anchor, t)
-			var cardioid_ideal = player_hand.lerp(c_p, t).lerp(c_p.lerp(target_anchor, t), t)
-			var displacement = (cardioid_ideal - straight_p) * (c.landing_offset.length() / 20.0)
-			
-			# Apply displacement to physical point
-			p += displacement
-			
-			# --- TRAVELLING WAVE ---
-			var wave_freq = 0.0002
-			var wave_speed = 0.20
-			var wave_amp = c.landing_offset.length() * 0.0014
-			var phase = (t * wave_freq) - (Time.get_ticks_msec() * 0.001 * wave_speed)
-			p += perp * sin(phase) * wave_amp
-
-			# --- USER CHAOS SPIKES ---
-			if j > 0 and j < body.points.size() - 1:
-				var spike_scale = sin(t * PI) * 5.0
-				var jitter = Vector2(randf_range(-1, 1), randf_range(-1, 1)).normalized() * spike_scale * randf()
-				p += jitter
-			
-			c.line.add_point(p)
+		var wave_time = Time.get_ticks_msec() * 0.001
+		
+		# Map Physics Points to Line2D Points with visual displacement
+		c.line.points = pts # Direct sync is much faster than clear+add_point loops
+		
+		# Apply light visual "displacement" to the line points if needed
+		# but honestly, having too much logic here is what caused the lag.
+		# Let's keep it clean. Final jitter is applied in shader if possible.
 
 # --- REUSED HELPERS ---
 

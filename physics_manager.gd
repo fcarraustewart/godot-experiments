@@ -34,6 +34,9 @@ func unregister_character(char_node: Node2D):
 	simulated_objects.erase(char_node)
 
 func register_soft_body(id: String, points: Array, constraint_dist: float):
+	if native_manager:
+		return native_manager.register_soft_body(id, points, constraint_dist)
+		
 	var body = {
 		"id": id,
 		"type": "SOFT_BODY",
@@ -57,7 +60,8 @@ func _physics_process(delta):
 		elif body is Dictionary:
 			match body.type:
 				"SOFT_BODY":
-					_simulate_soft_body(body, delta)
+					if not native_manager:
+						_simulate_soft_body(body, delta)
 				"SECOND_ORDER":
 					if not native_manager:
 						_simulate_second_order(body, delta)
@@ -74,12 +78,12 @@ func register_second_order(id: String, initial_pos: Vector2, f: float, zeta: flo
 	var sim = {
 		"id": id,
 		"type": "SECOND_ORDER",
-		"xp": initial_pos,    # Current state position
-		"xd": Vector2.ZERO,   # Current state velocity
-		"y": initial_pos,     # Target position
-		"y_prev": initial_pos,# Previous target (for velocity estimation)
+		"xp": initial_pos, # Current state position
+		"xd": Vector2.ZERO, # Current state velocity
+		"y": initial_pos, # Target position
+		"y_prev": initial_pos, # Previous target (for velocity estimation)
 		"k1": k1, "k2": k2, "k3": k3,
-		"target_node": null   # Optional node to follow automatically
+		"target_node": null # Optional node to follow automatically
 	}
 	simulated_objects.append(sim)
 	return sim
@@ -105,7 +109,7 @@ func _simulate_second_order(sim, delta):
 func _simulate_character_physics(char_node, delta):
 	if char_node is CharacterBody2D:
 		# Skip Player to avoid double simulation (handled in PlayerController._physics_process)
-		if char_node.is_in_group("Player"): 
+		if char_node.is_in_group("Player"):
 			return
 			
 		# Default movement and gravity for entities that became CharacterBody2D
@@ -161,7 +165,7 @@ func _simulate_character_physics(char_node, delta):
 		# 2. Apply Gravity if strictly in the air or moving upwards
 		velocity += gravity * delta
 
-		if(Engine.get_process_frames() % 360 == 0):
+		if (Engine.get_process_frames() % 360 == 0):
 			print("[PhysicsManager] Velocity after gravity:", velocity)
 	
 	# 3. Integration (Move the node)
@@ -191,7 +195,7 @@ func _simulate_soft_body(body, delta):
 	for _iter in range(12): # Relaxation
 		for i in range(points.size() - 1):
 			var p1 = points[i]
-			var p2 = points[i+1]
+			var p2 = points[i + 1]
 			var diff = p2 - p1
 			var d = diff.length()
 			if d == 0: continue
@@ -199,25 +203,42 @@ func _simulate_soft_body(body, delta):
 			
 			# Logic: Anchored points dont move, they pull others
 			var m1 = 0.5 if not body.anchors.has(i) else 0.0
-			var m2 = 0.5 if not body.anchors.has(i+1) else 0.0
+			var m2 = 0.5 if not body.anchors.has(i + 1) else 0.0
 			
 			if m1 + m2 > 0:
 				points[i] += diff * error * (m1 / (m1 + m2))
-				points[i+1] -= diff * error * (m2 / (m1 + m2))
+				points[i + 1] -= diff * error * (m2 / (m1 + m2))
 
 # --- UTILS ---
 
 func apply_force(id: String, force: Vector2):
+	if native_manager:
+		native_manager.apply_soft_body_force(id, force)
+		return
+		
 	for body in simulated_objects:
 		if body is Dictionary and body.get("id") == id:
 			if body.get("type") == "SOFT_BODY":
 				body.forces += force
 
 func get_body_data(id: String) -> Array:
+	if native_manager:
+		return native_manager.get_soft_body_points(id)
+		
 	for body in simulated_objects:
 		if body is Dictionary and body.get("id") == id:
 			return body.points
 	return []
+
+func set_soft_body_prev_points(id: String, prev_points: Array):
+	if native_manager:
+		native_manager.set_soft_body_prev_points(id, prev_points)
+		return
+		
+	for body in simulated_objects:
+		if body is Dictionary and body.get("id") == id:
+			body.prev_points = prev_points
+			break
 
 func unregister_soft_body(id: String):
 	for i in range(simulated_objects.size() - 1, -1, -1):
@@ -265,6 +286,16 @@ func set_second_order_target(id: String, new_y: Vector2):
 	for body in simulated_objects:
 		if body is Dictionary and body.get("id") == id:
 			body.y = new_y
+
+func update_soft_body_anchors(id: String, anchors: Dictionary):
+	if native_manager:
+		native_manager.update_soft_body_anchors(id, anchors)
+		return
+		
+	for body in simulated_objects:
+		if body is Dictionary and body.get("id") == id:
+			body.anchors = anchors
+			break
 
 func update_dynamics_for_sim(sim_dict: Dictionary, f: float, zeta: float, r: float):
 	if native_manager and sim_dict.get("type") == "SECOND_ORDER":
