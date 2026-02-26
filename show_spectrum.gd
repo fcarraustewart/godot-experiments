@@ -1147,7 +1147,6 @@ func _spawn_grass_swarm(pos: Vector2):
 		return
 	# Skip if too far from player (dist check)
 	if player.global_position.distance_to(pos) > 250.0:
-		print("[ShowSpectrum] Skipping grass swarm spawn at ", pos, " - too far from player.", player.global_position)
 		return
 	var swarm_container = Node2D.new()
 	swarm_container.global_position = pos
@@ -1155,16 +1154,16 @@ func _spawn_grass_swarm(pos: Vector2):
 	
 	# Create Manager
 	var manager = BaseFlockSwarm.new()
-	manager.target_node = player
+	manager.target_node = swarm_container
 	manager.unit_count = 6 # More units
-	manager.target_attraction_weight = -0.05 # Repulsion burst
+	manager.target_attraction_weight = -4.05 # Repulsion burst
 	manager.max_speed = 1.0 # Fast pop
 	manager.perception_radius = 50.0
-	manager.separation_weight = -2.00
+	manager.separation_weight = 4.00
 	manager.cohesion_weight = -2.9
 	manager.alignment_weight = 1.0
 	manager.spawn_radius = 10.0
-	manager.frequency = 0.60 # Snappy
+	manager.frequency = 1.60 # Snappy
 	manager.damping = 0.4
 	
 	manager.unit_mesh_scale = Vector2(0.1, 0.1)
