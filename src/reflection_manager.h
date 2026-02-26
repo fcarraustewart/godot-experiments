@@ -17,7 +17,6 @@ class NativeReflectionManager : public Node {
 protected:
     static void _bind_methods();
 
-    void _collect_visual_nodes_recursive(Node *root, TypedArray<Node> &list);
     void _reflect_node_in_pond(Node2D *vis, Node2D *pond, int frame);
     void _update_node_reflection(Node2D *entity, Node2D *reflection, Node2D *pond);
     void _prune_old_reflections(TypedArray<Node2D> all_ponds, int frame);

@@ -4,8 +4,8 @@ class_name BaseTile
 
 signal stepped_on_tile(tile)
 
-enum TileType { DEFAULT, SIDE_END, WITH_GRASS }
-enum TileState { IDLE, STEPPED_ON }
+enum TileType {DEFAULT, SIDE_END, WITH_GRASS}
+enum TileState {IDLE, STEPPED_ON}
 
 var type: TileType = TileType.DEFAULT
 var state: TileState = TileState.IDLE
@@ -58,6 +58,14 @@ func _ready():
 	static_body.add_child(col)
 
 func _process(delta):
+	# PERFORMANCE GUARD: skip if too far away
+	var _players = get_tree().get_nodes_in_group("Player")
+	if not _players: return
+
+	if _players.size() > 0:
+		if _players[0].global_position.distance_to(global_position) > 300.0:
+			return
+			
 	# 1. Detection: Check if any entity is on top of this tile
 	var was_stepped_on = (state == TileState.STEPPED_ON)
 	var currently_stepped_on = false
@@ -70,7 +78,7 @@ func _process(delta):
 				if obj.has_method("get_feet_offset"):
 					f_offset = obj.get_feet_offset()
 					
-				var feet_pos = obj.global_position + Vector2(0, f_offset) 
+				var feet_pos = obj.global_position + Vector2(0, f_offset)
 				if abs(feet_pos.x - global_position.x) < 16 and abs(feet_pos.y - (global_position.y - 16)) < 12:
 					currently_stepped_on = true
 					break
@@ -89,7 +97,7 @@ func _process(delta):
 		if not was_stepped_on:
 			state = TileState.STEPPED_ON
 			_update_visuals()
-			emit_signal("stepped_on_tile", self)
+			emit_signal("stepped_on_tile", self )
 	else:
 		if was_stepped_on:
 			state = TileState.IDLE

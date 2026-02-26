@@ -13,27 +13,10 @@ void NativeReflectionManager::_bind_methods() {
     ClassDB::bind_method(D_METHOD("process_reflections", "all_ponds", "reflection_nodes", "entities", "world_children", "player", "player_light", "moon_light", "current_frame", "screen_height"), &NativeReflectionManager::process_reflections);
 }
 
-void NativeReflectionManager::_collect_visual_nodes_recursive(Node *root, TypedArray<Node> &list) {
-    if (Object::cast_to<Sprite2D>(root) || Object::cast_to<Line2D>(root) || Object::cast_to<Polygon2D>(root)) {
-        String name = root->get_name();
-        if (!name.contains("Ref_") && !name.contains("Reflection")) {
-            list.push_back(root);
-        }
-    }
-
-    TypedArray<Node> children = root->get_children();
-    for (int i = 0; i < children.size(); i++) {
-        Node *child = Object::cast_to<Node>(children[i]);
-        if (child) {
-            _collect_visual_nodes_recursive(child, list);
-        }
-    }
-}
-
-void NativeReflectionManager::process_reflections(TypedArray<Node2D> all_ponds, Dictionary reflection_nodes, TypedArray<Node2D> entities, TypedArray<Node> world_children, Node2D *player, Node2D *player_light, Node2D *moon_light, int current_frame, float screen_height) {
+void NativeReflectionManager::process_reflections(TypedArray<Node2D> all_ponds, Dictionary reflection_nodes, TypedArray<Node2D> entities, TypedArray<Node> manual_visuals, Node2D *player, Node2D *player_light, Node2D *moon_light, int current_frame, float screen_height) {
     if (!player) return;
 
-    // 1. Update Entities (Player, Enemies)
+    // 1. Update Core Entities (Player, Enemies)
     Array entity_keys = reflection_nodes.keys();
     for (int i = 0; i < entity_keys.size(); i++) {
         Node2D *entity = Object::cast_to<Node2D>(entity_keys[i]);
@@ -83,24 +66,8 @@ void NativeReflectionManager::process_reflections(TypedArray<Node2D> all_ponds, 
         }
     }
 
-    // 2. Update Dynamic Visuals & Skills
-    TypedArray<Node> visuals_to_reflect;
-
-    for (int i = 0; i < entities.size(); i++) {
-        Node *ent = Object::cast_to<Node>(entities[i]);
-        if (ent && ent->is_inside_tree()) {
-            _collect_visual_nodes_recursive(ent, visuals_to_reflect);
-        }
-    }
-
-    for (int i = 0; i < world_children.size(); i++) {
-        Node *child = Object::cast_to<Node>(world_children[i]);
-        if (!child || !Object::cast_to<Node2D>(child)) continue;
-
-        String name = child->get_name();
-        if (name.contains("Pond") || name.contains("Ref_") || child == player_light || child == moon_light) continue;
-        _collect_visual_nodes_recursive(child, visuals_to_reflect);
-    }
+    // 2. Update Dynamic Visuals & Skills (Explicitly provided or grouped)
+    TypedArray<Node> visuals_to_reflect = manual_visuals;
 
     for (int i = 0; i < visuals_to_reflect.size(); i++) {
         Node2D *vis = Object::cast_to<Node2D>(visuals_to_reflect[i]);

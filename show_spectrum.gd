@@ -10,11 +10,11 @@ var b = 5
 var color_modulation = 0
 # --- SPRITE VARIABLES (MAIN CHARACTER) ---
 
-var animation_timer = 0.0     # To track time for animation
-var animation_timer_enemies = 0.0     # To track time for animation
+var animation_timer = 0.0 # To track time for animation
+var animation_timer_enemies = 0.0 # To track time for animation
 var cooldown_up = true
-var current_frame = 0         # Current frame index (0, 1, or 2)
-var current_frame_enemies = 0         # Current frame index (0, 1, or 2)
+var current_frame = 0 # Current frame index (0, 1, or 2)
+var current_frame_enemies = 0 # Current frame index (0, 1, or 2)
 var all_trees = [] # Track trees for light rays
 var all_platforms = [] # Visual platform nodes
 # ------------------------
@@ -48,7 +48,7 @@ var center = Vector2(SCREEN_WIDTH / 2.0, SCREEN_HEIGHT / 2.0)
 
 const HEIGHT_SCALE = 8.0
 const MIN_DB = 60
-const SPECTRUM_ANIMATION_SPEED = 0.1 
+const SPECTRUM_ANIMATION_SPEED = 0.1
 
 # Spectrum visual settings
 const SPECTRUM_SCALE = Vector2(0.4, 0.4)
@@ -107,9 +107,9 @@ func setup_chill_background():
 		var cy = sky.size.y - 400 # Move them UP (Positive Y is down, so subtract to move up)
 		
 		mtn.polygon = PackedVector2Array([
-			Vector2(cx - w/2, cy),
+			Vector2(cx - w / 2, cy),
 			Vector2(cx, cy - h),
-			Vector2(cx + w/2, cy)
+			Vector2(cx + w / 2, cy)
 		])
 		mtn.color = Color(0.05, 0.05, 0.2).lightened(0.05 * (i % 3))
 		sky.add_child(mtn)
@@ -169,15 +169,15 @@ func setup_trees():
 			
 		# Y Position: Ground level is roughly SCREEN_HEIGHT - 50
 		var ground_y = SCREEN_HEIGHT - 50
-		var ground_y2 = SCREEN_HEIGHT*2 - 50
+		var ground_y2 = SCREEN_HEIGHT * 2 - 50
 
 		# Sink them a bit into the ground for variation
 		var sink = randf_range(10, 40)
 		tree.position = Vector2(x_pos, ground_y - (tree_tex.get_height() * s * 0.5) + sink)
-		tree2.position = Vector2(x_pos2, ground_y2 - (tree_tex.get_height() * s2 * 0.5) + sink) 
+		tree2.position = Vector2(x_pos2, ground_y2 - (tree_tex.get_height() * s2 * 0.5) + sink)
 
 		# Depth sorting visual hack:
-		tree.z_index = -11 + int(s * 5) 
+		tree.z_index = -11 + int(s * 5)
 		tree2.z_index = -11 + int(s2 * 5)
 		tree.modulate = Color(0.6, 0.6, 0.8).darkened((1.4 - s) * 0.5)
 		tree2.modulate = Color(0.6, 0.6, 0.8).darkened((1.4 - s2) * 0.5)
@@ -292,7 +292,7 @@ func setup_ponds():
 		# Random Position in the ground area
 		var x_pos = randf_range(-1500, 4500)
 		# Much higher on the screen (clamped to the ground area visually)
-		var y_pos = randf_range(tree_base_y + 256, ground_y - 32) 
+		var y_pos = randf_range(tree_base_y + 256, ground_y - 32)
 		pond_container.position = Vector2(x_pos, y_pos)
 		
 		# The Water Surface
@@ -305,7 +305,7 @@ func setup_ponds():
 		for j in range(segments):
 			var angle = (float(j) / segments) * TAU
 			var rv = randf_range(0.9, 1.1)
-			points.append(Vector2(cos(angle) * w/2 * rv, sin(angle) * h/2 * rv))
+			points.append(Vector2(cos(angle) * w / 2 * rv, sin(angle) * h / 2 * rv))
 		water.polygon = points
 		
 		var mat = ShaderMaterial.new()
@@ -339,7 +339,7 @@ func setup_ponds():
 		var splashes = CPUParticles2D.new()
 		splashes.amount = 8
 		splashes.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
-		splashes.emission_rect_extents = Vector2(w/2, h/2)
+		splashes.emission_rect_extents = Vector2(w / 2, h / 2)
 		splashes.direction = Vector2(0, -1)
 		splashes.spread = 45.0
 		splashes.gravity = Vector2(0, 98)
@@ -463,7 +463,7 @@ func update_light_effects(delta):
 	# 2. Sprite Illumination (Approaching sprites)
 	# 2. Sprite Illumination (Entities and Leaves)
 	var all_renderable = []
-	if is_instance_valid(player): 
+	if is_instance_valid(player):
 		all_renderable.append({"type": "entity", "obj": player})
 	for enemy in enemies:
 		if is_instance_valid(enemy):
@@ -475,14 +475,14 @@ func update_light_effects(delta):
 
 	for item in all_renderable:
 		var ent = item.obj
-		var boost : float = 0.0
+		var boost: float = 0.0
 		var pos = ent.global_position
 		
 		for l in all_lights:
 			# FIX: player light should not light up player.
 		#	if item.type == "entity" and ent == player and l == player_light:
 		#		continue
-			if(l in ent.get_children()):
+			if (l in ent.get_children()):
 				continue
 				
 			var dist: float = pos.distance_to(l.global_position)
@@ -529,18 +529,19 @@ func update_reflections():
 	
 	# Scrape Entities (Player and Enemies)
 	var entities = get_tree().get_nodes_in_group("Player") + get_tree().get_nodes_in_group("Enemy")
-	var world_children = get_children()
 	
-	# Execute all heavy bounding box math, tree manipulation, and AABB sweeping natively in C++
+	# Optimization: Only pass nodes that MUST be reflected (grouped 'reflectable')
+	var reflectables = get_tree().get_nodes_in_group("reflectable")
+	
 	reflection_manager.process_reflections(
-		all_ponds, 
-		reflection_nodes, 
-		entities, 
-		world_children, 
-		player, 
-		player_light, 
-		moon_light, 
-		Engine.get_process_frames(), 
+		all_ponds,
+		reflection_nodes,
+		entities,
+		reflectables,
+		player,
+		player_light,
+		moon_light,
+		Engine.get_process_frames(),
 		SCREEN_HEIGHT
 	)
 
@@ -584,8 +585,8 @@ func _ready():
 
 	# --- SETUP BACKGROUND (RAIN SHADER) ---
 	bg_rect = ColorRect.new()
-	bg_rect.size = Vector2(SCREEN_WIDTH*2, SCREEN_HEIGHT*2)
-	bg_rect.position = Vector2(-SCREEN_WIDTH/2, -SCREEN_HEIGHT/2)
+	bg_rect.size = Vector2(SCREEN_WIDTH * 2, SCREEN_HEIGHT * 2)
+	bg_rect.position = Vector2(-SCREEN_WIDTH / 2, -SCREEN_HEIGHT / 2)
 	bg_rect.show_behind_parent = true # Draw BEHIND the _draw logic
 	
 	var shader = load("res://rain.gdshader")
@@ -633,7 +634,7 @@ func _ready():
 	# ---- SETUP DUST PUFFS (Legacy Trail) ---
 	for i in range(3):
 		var dust = load("res://dust_puff.gd").new()
-		dust.host = dust_list[i-1]
+		dust.host = dust_list[i - 1]
 		dust.position = player.position + Vector2(0, 30)
 		add_child(dust)
 		dust_list.append(dust)
@@ -668,7 +669,7 @@ func _ready():
 		camera.lerp_speed = 5.0
 		print("[ShowSpectrum] Found Camera2D node and attached script.")
 		camera.enabled = true
-		camera.make_current() 
+		camera.make_current()
 		camera.setup(player)
 		print("[ShowSpectrum] Camera setup complete.")
 		
@@ -741,8 +742,6 @@ func _ready():
 	print("[ShowSpectrum] _ready complete.")
 
 
-
-
 func _on_player_cast_start(duration):
 	if player_light:
 		player_light.burst(1.8, duration) # Brighten during cast
@@ -789,7 +788,8 @@ func create_spectrum_sprite() -> Sprite2D:
 
 func _process(delta):
 	_update_environment(delta)
-	update_reflections()
+	if Engine.get_process_frames() % 2 == 0:
+		update_reflections()
 	update_light_effects(delta)
 
 
@@ -870,7 +870,6 @@ func _process_my_orbit_circles():
 
 func _draw():
 	# _draw_my_orbit_circles();
-	
 	# --- DRAW DEBUG HITBOXES ---
 	# 1. Draw Player Hurtbox (Green - "Don't hit me here")
 	var p_rect = player.get_hurtbox()
@@ -937,13 +936,12 @@ func _draw():
 		)
 	
 	# Reset transform for other things if needed (though _draw usually isolates or runs last here)
-	draw_set_transform(Vector2.ZERO, 0, Vector2(1, 1)) 
+	draw_set_transform(Vector2.ZERO, 0, Vector2(1, 1))
 
 
 func _draw_my_orbit_circles():
 	# background(#1BB1F5) removed in favor of shader
 	# draw_rect(Rect2(0, 0, w_window * 2, h_window), Color("1BB1F5"), true)
-	
 	var xAmplitude = 100
 	var yAmplitude = 200.0 / 2.0
 	
@@ -1084,7 +1082,7 @@ func _update_leaves(delta):
 		l.velocity.x = lerp(l.velocity.x, wind_power * leaf_wind_influence, delta * 1.5)
 		
 		# Air Damping for floaty feel
-		l.velocity *= 0.985 
+		l.velocity *= 0.985
 		
 		# Organic Swaying
 		l.phase += delta * 3.5
@@ -1103,7 +1101,7 @@ func _update_leaves(delta):
 		if l.life < 1.0:
 			l.node.modulate.a = l.life
 			
-		if l.life <= 0: #or l.node.global_position.y > (SCREEN_HEIGHT + 200):
+		if l.life <= 0: # or l.node.global_position.y > (SCREEN_HEIGHT + 200):
 			l.node.queue_free()
 			all_leaves.remove_at(i)
 func _create_tiled_area(pos: Vector2, width: float, z: int) -> Vector2:
