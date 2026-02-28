@@ -57,11 +57,11 @@ func setup_parallax_background():
 	
 	var bg_dir = "res://art/environment/parallax-background/"
 	var layers_config = [
-		{"name": "ParallaxMountainBackground - 0.png", "factor": Vector2(0.005, 0.0), "z": - 10},
-		{"name": "ParallaxMountainBackground - 1.png", "factor": Vector2(0.012, 0.0), "z": - 8},
-		{"name": "ParallaxMountainBackground - 2.png", "factor": Vector2(0.25, 0.0), "z": - 6},
-		{"name": "ParallaxMountainBackground - 3.png", "factor": Vector2(0.50, 0.0), "z": - 4}, # The Ground
-		{"name": "ParallaxMountainBackground - 4.png", "factor": Vector2(-1.20, 0.0), "z": 1000} # Foreground
+		{"name": "ParallaxMountainBackground - 0.png", "factor": Vector2(1.0, 1.0), "z": - 10}, # Sky stays with camera
+		{"name": "ParallaxMountainBackground - 1.png", "factor": Vector2(0.8, 0.05), "z": - 8}, # Very distant
+		{"name": "ParallaxMountainBackground - 2.png", "factor": Vector2(0.5, 0.1), "z": - 6}, # Mid range
+		{"name": "ParallaxMountainBackground - 3.png", "factor": Vector2(0.0, 0.0), "z": - 4}, # THE GROUND (Gameplay Plane)
+		{"name": "ParallaxMountainBackground - 4.png", "factor": Vector2(-0.8, 0.0), "z": 1000} # Foreground passing by
 	]
 	
 	for layer_info in layers_config:
@@ -78,7 +78,17 @@ func setup_parallax_background():
 			sprite.region_rect = Rect2(0, 0, tex.get_width() * w_mult, tex.get_height())
 			
 			sprite.scale = Vector2(1, 1) # PIXEL PERFECT 1:1
-			sprite.position = Vector2(-tex.get_width() * w_mult / 2.0, 0)
+			
+			# Apply -90px vertical offset for Factor.y=1.0 alignment
+			var y_offset = 0.0
+			if layer_info.name.ends_with("- 0.png"):
+				y_offset = -90.0
+			if layer_info.name.ends_with("- 2.png"):
+				y_offset = -10.0
+			if layer_info.name.ends_with("- 3.png"):
+				y_offset = -10.0
+				
+			sprite.position = Vector2(-tex.get_width() * w_mult / 2.0, y_offset)
 			sprite.z_index = layer_info.z
 			add_child(sprite)
 			
@@ -98,7 +108,7 @@ func setup_physics_floor():
 	shape.normal = Vector2(0, -1)
 	col.shape = shape
 	# Place floor near bottom of 180 height image
-	col.position = Vector2(0, 150)
+	col.position = Vector2(0, SCREEN_HEIGHT - 38)
 	static_body.add_child(col)
 	
 	if PhysicsManager:
@@ -144,14 +154,14 @@ func setup_camera():
 	
 	# Adjust for 180p height: We want to see more sky
 	# With player at ~140, we want camera at 90 => offset is -50
-	cam.target_offset = Vector2(0, -50)
+	cam.target_offset = Vector2(0, -30)
 	cam.lerp_speed = 5.0
 	
 	cam.make_current()
 	cam.setup(player)
 	
 	# Initial snap center on background
-	cam.position = Vector2(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2)
+	cam.position = Vector2(SCREEN_WIDTH / 3, SCREEN_HEIGHT / 3)
 	
 	if parallax_manager:
 		parallax_manager.camera_node = cam

@@ -7,7 +7,7 @@ signal jumped
 signal jump_peak
 
 # --- CONFIG ---
-var jump_impulse: float = -800.0
+var jump_impulse: float = -200.0
 var jumping_gravity_mult: float = 1.0
 var falling_gravity_mult: float = 2.0
 var peak_threshold: float = 100.0 # Velocity range (abs) for "peak" state

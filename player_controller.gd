@@ -46,6 +46,20 @@ var chain_lightning_ctrl
 var fire_chains_ctrl
 var from_above = false
 
+# --- NEW LAYERED SPRITES (Split Body/Legs) ---
+var body_running_idle: Sprite2D
+var legs_running_idle: Sprite2D
+var body_running: Sprite2D
+var legs_running: Sprite2D
+var body_jumping: Sprite2D
+var legs_jumping: Sprite2D
+var body_dash: Sprite2D
+var legs_dash: Sprite2D
+
+var current_body_layer: Sprite2D
+var current_legs_layer: Sprite2D
+# ---------------------------------------------
+
 var axe_ctrl # Procedural axe controller
 var crow_pet
 var player_cast_bar: ProgressBar
@@ -107,11 +121,11 @@ func apply_slow(duration: int, slow_amount: float):
 func apply_root(duration: float):
 	emit_signal("rooted", duration)
 
-func _on_interruption(reason: BaseEntity.Reason):	
-	if current_state == State.CASTING: 
+func _on_interruption(reason: BaseEntity.Reason):
+	if current_state == State.CASTING:
 		casting_component.interrupt(reason)
 
-	match(reason):		
+	match (reason):
 		BaseEntity.Reason.SILENCED, BaseEntity.Reason.KICKED:
 			casting_component.emit_signal("cast_locked_out", INTERRUPTED_DURATION)
 			state_timer = INTERRUPTED_DURATION
@@ -142,7 +156,7 @@ func _on_interruption(reason: BaseEntity.Reason):
 
 func _on_jumped():
 	print("[player_controller]Player jumped!")
-	if(is_rooted_active):
+	if (is_rooted_active):
 		return
 	if current_state == State.CASTING or current_state == State.ATTACKING:
 		emit_signal("cast_interrupted", Reason.OTHER)
@@ -163,11 +177,11 @@ func _on_falling():
 		change_state(BaseEntity.State.FALLING)
 
 func _on_dashed():
-	if(is_rooted_active):
+	if (is_rooted_active):
 		return
 	if current_state == State.CASTING or current_state == State.ATTACKING:
 		emit_signal("cast_interrupted", Reason.OTHER)
-	else: 
+	else:
 		if current_state != State.DASHING:
 			state_timer = DASH_DURATION
 			change_state(State.DASHING)
@@ -261,9 +275,9 @@ func _ready():
 	
 	# 4. Running Sprite
 	running = Sprite2D.new()
-	running.texture = load("res://art/RunningFastAnims.png")
+	running.texture = load("res://art/RunningAnimsBodyLegs/RunningAnimsBody-Run.png")
 	running.region_enabled = false
-	running.hframes = 8 
+	running.hframes = 8
 	running.vframes = 1
 	running.visible = false
 	add_child(running)
@@ -295,7 +309,60 @@ func _ready():
 	attack1.visible = false
 	add_child(attack1)
 
-	# 7. Cleave Attack 1 (Front to Back)
+	# --- LAYERED SPRITES INITIALIZATION ---
+	# 1. Idle (Layered) - 3 Frames
+	body_running_idle = Sprite2D.new()
+	body_running_idle.texture = load("res://art/RunningAnimsBodyLegs/RunningAnimsBody-Idle.png")
+	body_running_idle.hframes = 3
+	body_running_idle.visible = false
+	add_child(body_running_idle)
+	
+	legs_running_idle = Sprite2D.new()
+	legs_running_idle.texture = load("res://art/RunningAnimsBodyLegs/RunningAnimsLegs-Idle.png")
+	legs_running_idle.hframes = 3
+	legs_running_idle.visible = false
+	add_child(legs_running_idle)
+
+	# 2. Running (Layered) - 8 Frames
+	body_running = Sprite2D.new()
+	body_running.texture = load("res://art/RunningAnimsBodyLegs/RunningAnimsBody-Run.png")
+	body_running.hframes = 8
+	body_running.visible = false
+	add_child(body_running)
+	
+	legs_running = Sprite2D.new()
+	legs_running.texture = load("res://art/RunningAnimsBodyLegs/RunningAnimsLegs-Run.png")
+	legs_running.hframes = 8
+	legs_running.visible = false
+	add_child(legs_running)
+
+	# 3. Jumping (Layered) - 11 Frames (Assuming same frame count as old jumping)
+	body_jumping = Sprite2D.new()
+	body_jumping.texture = load("res://art/RunningAnimsBodyLegs/RunningAnimsBody-Jump.png")
+	body_jumping.hframes = 11
+	body_jumping.visible = false
+	add_child(body_jumping)
+	
+	legs_jumping = Sprite2D.new()
+	legs_jumping.texture = load("res://art/RunningAnimsBodyLegs/RunningAnimsLegs-Jump.png")
+	legs_jumping.hframes = 11
+	legs_jumping.visible = false
+	add_child(legs_jumping)
+
+	# 4. Dash (Layered) - 7 Frames (Assuming same frame count as old dash)
+	body_dash = Sprite2D.new()
+	body_dash.texture = load("res://art/RunningAnimsBodyLegs/RunningAnimsBody-Shoulder Dash.png")
+	body_dash.hframes = 7
+	body_dash.visible = false
+	add_child(body_dash)
+	
+	legs_dash = Sprite2D.new()
+	legs_dash.texture = load("res://art/RunningAnimsBodyLegs/RunningAnimsLegs-Shoulder Dash.png")
+	legs_dash.hframes = 7
+	legs_dash.visible = false
+	add_child(legs_dash)
+	# --------------------------------------
+		# 7. Cleave Attack 1 (Front to Back)
 	attack2 = Sprite2D.new()
 	attack2.texture = load("res://art/inanimate-anims-cast2-instant.png")
 	attack2.region_enabled = false
@@ -335,31 +402,31 @@ func _ready():
 	meteor_strike_ctrl.game_node = game_node
 	add_child(meteor_strike_ctrl)
 	
-	jump_component = JumpComponent.new(self)
+	jump_component = JumpComponent.new(self )
 	add_child(jump_component)
 
-	movement_component = MovementComponent.new(self)
+	movement_component = MovementComponent.new(self )
 	add_child(movement_component)
 
-	action_component = ActionComponent.new(self)
+	action_component = ActionComponent.new(self )
 	add_child(action_component)
 
-	aim_component = AimComponent.new(self)
+	aim_component = AimComponent.new(self )
 	add_child(aim_component)
 
-	knockback_component = KnockbackComponent.new(self)
+	knockback_component = KnockbackComponent.new(self )
 	add_child(knockback_component)
 
-	interaction_component = InteractionComponent.new(self)
+	interaction_component = InteractionComponent.new(self )
 	add_child(interaction_component)
 
 	inventory_component = InventoryComponent.new()
 	add_child(inventory_component)
 
-	casting_component = CastingComponent.new(self)
+	casting_component = CastingComponent.new(self )
 	add_child(casting_component)
 	
-	interruption_component = InterruptionComponent.new(self)
+	interruption_component = InterruptionComponent.new(self )
 	add_child(interruption_component)
 
 	# --- SETUP COLLISION ---
@@ -393,7 +460,7 @@ func _ready():
 	# Connect Internal Signals
 	interruption_component.interrupted.connect(_on_interruption)
 	
-	casting_component.cast_started.connect(func(dur): 
+	casting_component.cast_started.connect(func(dur):
 		change_state(State.CASTING)
 	)
 	casting_component.cast_done.connect(func():
@@ -433,7 +500,7 @@ func _ready():
 
 func _exit_tree():
 	if CombatManager:
-		CombatManager.unregister_entity(self)
+		CombatManager.unregister_entity(self )
 
 # --- PHYSICS ---
 func _physics_process(delta):
@@ -443,7 +510,7 @@ func _physics_process(delta):
 		if gravity_val == 0: gravity_val = 980 # Fallback
 		
 		# In this specific project, PhysicsManager had 800
-		gravity_val = 800.0 
+		gravity_val = 800.0
 		
 		velocity.y += gravity_val * gravity_multiplier * delta
 
@@ -615,7 +682,7 @@ func _on_input_throttle(val: float):
 	input_throttle = val
 
 func _on_jump_input():
-	if jump_component: 
+	if jump_component:
 		jump_component.handle_jump_input()
 
 # instants:
@@ -629,58 +696,38 @@ func _on_input_action(action_name: String, data: Dictionary):
 # --- UTILS ---
 func sprite_swap():
 	_hide_all_sprites()
-	var active = get_active_sprite()
-	if active: 
+	var actives = get_active_sprites()
+	for active in actives:
+		if not is_instance_valid(active): continue
 		active.visible = true
 		# active.position.y = 0
 		
 		# --- BULLETPROOF REGION-BOUNDED hframes ---
-		# We define the 'Real Area' and let Godot's hframes divide only THAT.
-		# active.region_enabled = true
 		var tex = active.texture
 		if tex:
 			var total_w = tex.get_width()
 			var total_h = tex.get_height()
 			
-			# Determine frame count and optional junk padding
-			var h_cnt = 1
 			active.region_enabled = true
-			
-			# Determine cell width based on texture height (Standard Grid assumption)
-			var cell_width = total_w / active.hframes # Square assumption for larger sprites
+			var cell_width = total_w / active.hframes
 
-			# Use the HARDCODED hframes as the source of truth for "How many frames SHOULD be there"
-			# This clips any padding/junk at the end of the strip.
 			var expected_width = active.hframes * cell_width
 			
-			# Safety check: If texture is smaller than expected, we can't invent pixels, 
-			# but we should still respect the grid.
 			if expected_width > total_w:
-				# Texture is too small for the declared frames?
-				# This implies either wrong hframes or wrong cell_width.
-				# Fallback to total_w
 				expected_width = total_w
 			
-			# Set Region
 			active.region_enabled = true
 			active.region_rect = Rect2(0, 0, expected_width, total_h)
-			
-			# hframes is already set correctly by _ready logic, but we ensure it matches our region
-			# Note: Godot divides region_rect.size.x by hframes.
-			# If we set region width to (hframes * 64), then each frame is exactly 64. Perfect.
 			active.vframes = 1
 			
 			# --- AUTO-SCALE ---
-			# We want to display at roughly 128px height on screen
-			var target_display_size : float = 128.0
+			var target_display_size: float = 128.0
 			
-			# Calculate scale based on the CELL size, not the full texture
-			# This ensures consistent size even if texture had junk
 			var frame_w = float(cell_width)
 			var frame_h = float(total_h)
 			
-			if(active == stationary):
-				frame_w = 128 # we had a problem here with the export for idle 128 vs stationary 64
+			if (active == stationary):
+				frame_w = 128
 				frame_h = 128
 
 			var s_x = target_display_size / frame_w
@@ -691,15 +738,6 @@ func sprite_swap():
 				active.scale = Vector2(-s_x, s_y)
 			else:
 				active.scale = Vector2(s_x, s_y)
- 
-			# --- USER DEBUG PRINT ---
-			if Engine.get_process_frames() % 60 == 0:
-				print("[player_controller][PlayerPhysics] State: %s | TexW: %d | Frames: %d | Cell: %d" % [
-					State.keys()[current_state],
-					total_w,
-					active.hframes,
-					cell_width
-				])
 
 		
 		# Special colors combined with external lighting
@@ -714,8 +752,15 @@ func sprite_swap():
 
 func reset_animations():
 	sprite_swap()
-	for s in [sprite, casting, casting_success, running, jumping, dash, attack1, attack2, attack3, idle, stationary]:
-		s.frame = 0
+	var all_renderers = [
+		sprite, casting, casting_success, running, jumping, dash,
+		attack1, attack2, attack3, idle, stationary,
+		body_running_idle, legs_running_idle, body_running, legs_running,
+		body_jumping, legs_jumping, body_dash, legs_dash
+	]
+	for s in all_renderers:
+		if is_instance_valid(s):
+			s.frame = 0
 
 func change_state(new_state):
 	if current_state == new_state: return
@@ -766,43 +811,32 @@ func change_state(new_state):
 			player_cast_bar.visible = false
 
 func _hide_all_sprites():
-	sprite.visible = false
-	casting.visible = false
-	casting_success.visible = false
-	running.visible = false
-	jumping.visible = false
-	dash.visible = false
-	attack1.visible = false
-	attack2.visible = false
-	attack3.visible = false
-	idle.visible = false
-	stationary.visible = false
-	# Ensure they are opaque when they DO appear
-	sprite.modulate.a = 1.0
-	casting.modulate.a = 1.0
-	casting_success.modulate.a = 1.0
-	running.modulate.a = 1.0
-	jumping.modulate.a = 1.0
-	dash.modulate.a = 1.0
-	attack1.modulate.a = 1.0
-	attack2.modulate.a = 1.0
-	attack3.modulate.a = 1.0
-	idle.modulate.a = 1.0
-	stationary.modulate.a = 1.0
+	var all_sprites = [
+		sprite, casting, casting_success, running, jumping, dash,
+		attack1, attack2, attack3, idle, stationary,
+		body_running_idle, legs_running_idle,
+		body_running, legs_running,
+		body_jumping, legs_jumping,
+		body_dash, legs_dash
+	]
+	for s in all_sprites:
+		if is_instance_valid(s):
+			s.visible = false
+			s.modulate.a = 1.0
 
-func get_active_sprite() -> Sprite2D:
+func get_active_sprites() -> Array:
 	match current_state:
-		State.ATTACKING: return attack1
-		State.ATTACKING_2: return attack2
-		State.ATTACKING_3: return attack3
-		State.RUNNING, State.LANDING: return running
-		State.JUMPING, State.JUMP_PEAK, State.FALLING: return jumping
-		State.DASHING: return dash
-		State.CASTING: return casting
-		State.CASTING_COMPLETE: return casting_success
-		State.IDLE: return idle
-		State.STATIONARY: return stationary
-		_: return sprite
+		State.ATTACKING: return [attack1]
+		State.ATTACKING_2: return [attack2]
+		State.ATTACKING_3: return [attack3]
+		State.RUNNING, State.LANDING: return [body_running, legs_running]
+		State.JUMPING, State.JUMP_PEAK, State.FALLING: return [body_jumping, legs_jumping]
+		State.DASHING: return [body_dash, legs_dash]
+		State.CASTING: return [casting]
+		State.CASTING_COMPLETE: return [casting_success]
+		State.IDLE: return [body_running_idle, legs_running_idle]
+		State.STATIONARY: return [stationary]
+		_: return [sprite]
 
 func update_animation(_delta):
 	sprite_swap()
@@ -810,47 +844,51 @@ func update_animation(_delta):
 	# We set .frame here, and _process uses it to calculate region_rect.
 	match current_state:
 		State.ATTACKING, State.ATTACKING_2, State.ATTACKING_3:
-			var active = get_active_sprite()
-			var t : float = 0.0
-			if(active.frame < active.hframes):
-				t = Time.get_ticks_msec() / 100.0 
-			active.frame = (int(t)) % active.hframes
+			var actives = get_active_sprites()
+			for active in actives:
+				var t = Time.get_ticks_msec() / 100.0
+				active.frame = (int(t)) % active.hframes
 		State.CASTING_COMPLETE:
-			var h_cnt : int = 0
+			var h_cnt: int = 0
 			var ctrl = casting_component.active_skill_ctrl
 			if ctrl:
 				var data = DataManager.get_spell(ctrl.get_spell_id() if ctrl.has_method("get_spell_id") else "")
 				if data: h_cnt = data.get("success_frames", 8)
-			if(casting_success.frame < h_cnt-1): 
-				var t : int = int(Time.get_ticks_msec() / 30.0)
+			if (casting_success.frame < h_cnt - 1):
+				var t: int = int(Time.get_ticks_msec() / 30.0)
 				casting_success.frame = int(t) % (h_cnt)
-				# print("[player_controller] Casting Success Frame: %d / %d" % [casting_success.frame, h_cnt])
 		State.CASTING:
 			var t = Time.get_ticks_msec() / 100.0
-			var h_cnt : int = 0
+			var h_cnt: int = 0
 			var ctrl = casting_component.active_skill_ctrl
 			if ctrl:
 				var data = DataManager.get_spell(ctrl.get_spell_id() if ctrl.has_method("get_spell_id") else "")
 				if data: h_cnt = data.get("casting_frames", 22)
 			casting.frame = int(t) % h_cnt
 		State.RUNNING:
-			var t = Time.get_ticks_msec() / 100.0 
-			running.frame = (int(t)) % running.hframes
+			var t = Time.get_ticks_msec() / 100.0
+			body_running.frame = (int(t)) % body_running.hframes
+			legs_running.frame = (int(t)) % legs_running.hframes
 		State.JUMPING:
-			# Ascending frames
-			jumping.frame = 1
+			var t = Time.get_ticks_msec() / 100.0
+			body_jumping.frame = clamp(int(t) % 11, 0, 5)
+			legs_jumping.frame = clamp(int(t) % 11, 0, 5)
 		State.JUMP_PEAK:
-			jumping.frame = 5
+			body_jumping.frame = 6
+			legs_jumping.frame = 6
 		State.FALLING:
-			jumping.frame = 9
+			body_jumping.frame = 9
+			legs_jumping.frame = 9
 		State.DASHING:
-			var t = Time.get_ticks_msec() / 50.0 
-			dash.frame = (int(t)) % dash.hframes
+			var t = Time.get_ticks_msec() / 50.0
+			body_dash.frame = (int(t)) % body_dash.hframes
+			legs_dash.frame = (int(t)) % legs_dash.hframes
 		State.IDLE:
-			var t = Time.get_ticks_msec() / 150.0 
-			idle.frame = (int(t)) % idle.hframes
+			var t = Time.get_ticks_msec() / 150.0
+			body_running_idle.frame = (int(t)) % body_running_idle.hframes
+			legs_running_idle.frame = (int(t)) % legs_running_idle.hframes
 		State.STATIONARY:
-			var t = Time.get_ticks_msec() / 200.0 
+			var t = Time.get_ticks_msec() / 200.0
 			stationary.frame = (int(t)) % stationary.hframes
 
 # --- HITBOX HELPERS (For compatibility with Main Scene collision check) ---
@@ -868,7 +906,7 @@ func get_sword_hitbox() -> Rect2:
 	if current_state != State.ATTACKING: return Rect2()
 	
 	var offset = PLAYER_SWORD_HITBOX_OFFSET
-	if not facing_right: offset.x = -offset.x
+	if not facing_right: offset.x = - offset.x
 	
 	var box_center = position + Vector2(offset.x, offset.y)
 	

@@ -7,7 +7,7 @@ class_name MovementComponent
 ## The parent reads movement_component.current_speed if it needs the value directly.
 
 # --- CONFIG ---
-@export var base_speed: float = 500.0
+@export var base_speed: float = 100.0
 @export var speed_while_jumping: float = 0.7
 @export var speed_while_dashing: float = 4.5
 
