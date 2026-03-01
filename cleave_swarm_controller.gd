@@ -5,8 +5,8 @@ extends Node
 # Inspired by death_chains but closer range and perspective-based.
 
 @export var DAMAGE = 5.0
-@export var UNIT_COUNT = 64
-@export var LIFETIME = 1.8
+@export var UNIT_COUNT = 3
+@export var LIFETIME = 3.8
 @export var REPEL_FORCE = 400.0
 
 var game_node: Node2D
@@ -16,12 +16,12 @@ func _ready():
 	player = get_parent()
 
 func cast_cleave(type: int):
-	if not game_node: 
+	if not game_node:
 		game_node = get_parent().get_parent() # Fallback
 	
 	var swarm = BaseFlockSwarm.new()
 	swarm.unit_count = UNIT_COUNT
-	swarm.spawn_radius = 100.0
+	swarm.spawn_radius = 10.0
 	swarm.max_speed = 1000.0 # Fast burst
 	
 	# Swarm behavior weights
@@ -51,7 +51,7 @@ func cast_cleave(type: int):
 	
 	# Dispersion Tween for visuals
 	var t = create_tween()
-	t.parallel().tween_property(swarm, "unit_scale", 2.0, LIFETIME)
+	t.parallel().tween_property(swarm, "unit_scale", 1.0, LIFETIME)
 	t.parallel().tween_property(swarm, "modulate:a", 0.5, LIFETIME)
 	t.parallel().tween_property(swarm, "target_attraction_weight", 0.9, LIFETIME * 0.5)
 	
@@ -77,7 +77,8 @@ func _apply_cleave_damage():
 	var cleave_origin = player.global_position + forward * 30.0
 	
 	# Find enemies in range
-	var enemies = get_tree().get_nodes_in_group("Enemy")
+	# FIXME this should use CombatManager get_nearest_target
+	var enemies = get_tree().get_nodes_in_group("Enemy") # very inefficient, but this is a demo
 	for enemy in enemies:
 		if is_instance_valid(enemy):
 			var dist = cleave_origin.distance_to(enemy.global_position)

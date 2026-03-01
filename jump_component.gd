@@ -7,7 +7,7 @@ signal jumped
 signal jump_peak
 
 # --- CONFIG ---
-var jump_impulse: float = -200.0
+var jump_impulse: float = -300.0
 var jumping_gravity_mult: float = 1.0
 var falling_gravity_mult: float = 2.0
 var peak_threshold: float = 100.0 # Velocity range (abs) for "peak" state
@@ -28,9 +28,21 @@ func update(delta: float):
 	if parent.is_on_floor():
 		coyote_timer = COYOTE_TIME
 	else:
+		if parent.is_incapacitated():
+			# reset and let others handle state. Knockdown or Stunned or CC'd.
+			jump_buffer_timer = 0
+			# clip velocity once to make the player start falling instantly
+			if parent.velocity.y < peak_threshold + 1: 
+				parent.velocity.y = peak_threshold + 1
+			coyote_timer = 0.0
+			jump_buffer_timer = 0.0
+			parent.set("gravity_multiplier", falling_gravity_mult * 2)
+			print("[JumpComponent] CC'd falling with gravity falling_gravity_mult * 2")
+			return
+
 		if coyote_timer > 0:
 			coyote_timer -= delta
-			
+	
 	if jump_buffer_timer > 0:
 		jump_buffer_timer -= delta
 		

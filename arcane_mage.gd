@@ -68,7 +68,7 @@ func _process(delta):
 	
 	# Find target if none
 	if not is_instance_valid(target):
-		target = CombatManager.get_nearest_target(global_position, AGGRO_RANGE, self, CombatManager.Faction.PLAYER)
+		target = CombatManager.get_nearest_target(global_position, AGGRO_RANGE, self , CombatManager.Faction.PLAYER)
 
 	# State Logic
 	match current_state:
@@ -80,6 +80,8 @@ func _process(delta):
 			_process_casting_anim(delta)
 		State.CASTING_COMPLETE:
 			velocity.x = 0
+			_process_movement(delta)
+			_check_attack_conditions()
 			_process_cast_success_anim(delta)
 		State.HURT:
 			velocity.x = 0
@@ -152,7 +154,7 @@ func start_casting():
 	# Force hframes based on 32px width assumption to fix "sweeping" issues
 	# If the image is a strip, width / 32 should be the correct frame count.
 	var w = sprite.texture.get_width()
-	sprite.hframes = int(w / 32) 
+	sprite.hframes = int(w / 32)
 	sprite.vframes = 1
 	
 	current_anim_frame = 0.0
@@ -191,7 +193,7 @@ func finish_cast():
 		sprite.texture = TEX_CAST_SUCCESS
 		# Dynamic frame calculation
 		var w = sprite.texture.get_width()
-		sprite.hframes = int(w / 32) 
+		sprite.hframes = int(w / 32)
 		sprite.vframes = 1
 		
 		current_anim_frame = 0.0
@@ -239,7 +241,7 @@ func _update_animation(_delta):
 
 func get_sword_hitbox() -> Rect2:
 	# Keep compatibility just in case
-	return Rect2(position, Vector2(10,10))
+	return Rect2(position, Vector2(10, 10))
 
 func get_active_sprite() -> Sprite2D:
 	return sprite
@@ -256,3 +258,14 @@ func on_interaction_fail(reason: String):
 			state_timer = 1.0 # Short stun/confusion
 			change_state(State.INTERRUPTED)
 			cast_cooldown_timer = 1.0 # Short cooldown penalty
+
+func apply_hit(amount: float, source: Node2D):
+	super.apply_hit(amount, source)
+	if current_state == State.CASTING:
+		# Maybe interrupt?
+		if randf() > 0.5:
+			change_state(State.INTERRUPTED)
+			state_timer = 1.5
+	
+	state_timer = 0.5
+	change_state(State.HURT)

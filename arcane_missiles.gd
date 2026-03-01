@@ -39,6 +39,7 @@ func cast_missiles(target: Node2D):
 	swarm.set_target_node(target)
 	
 	swarm.global_position = host.global_position + Vector2(0, -30)
+	swarm.add_to_group("ArcaneMissile")
 	game_node.add_child(swarm)
 	swarm.spawn_flock()
 	

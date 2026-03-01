@@ -7,7 +7,7 @@ class_name MovementComponent
 ## The parent reads movement_component.current_speed if it needs the value directly.
 
 # --- CONFIG ---
-@export var base_speed: float = 100.0
+@export var base_speed: float = 200.0
 @export var speed_while_jumping: float = 0.7
 @export var speed_while_dashing: float = 4.5
 
@@ -29,6 +29,11 @@ func update(_delta: float) -> void:
 		return
 
 	var throttle: float = _player.input_throttle
+
+	if _player.is_incapacitated():
+		print("[MovementComponent] CC'd can't move")
+		throttle = 0.0
+
 	var state = _player.current_state
 
 	# --- Compute horizontal speed ---

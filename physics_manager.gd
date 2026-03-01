@@ -112,7 +112,12 @@ func _simulate_character_physics(char_node, delta):
 		if char_node.is_in_group("Player"):
 			return
 			
-		# Default movement and gravity for entities that became CharacterBody2D
+		# 1. Update and apply knockback BEFORE movement but AFTER AI has set base velocity
+		if char_node.has_node("KnockbackComponent"):
+			var kb = char_node.get_node("KnockbackComponent")
+			kb.update(delta)
+			char_node.velocity += kb.current_velocity
+
 		if not char_node.is_on_floor():
 			var g_mult = char_node.get("gravity_multiplier") if "gravity_multiplier" in char_node else 1.0
 			char_node.velocity.y += gravity_player.y * g_mult * delta
@@ -153,8 +158,14 @@ func _simulate_character_physics(char_node, delta):
 	var on_floor = char_node.global_position.y + feet_offset >= current_floor_y - 2.0
 	var is_snapped = on_floor and velocity.y >= 0
 
+	if char_node.has_node("KnockbackComponent"):
+		var kb = char_node.get_node("KnockbackComponent")
+		kb.update(delta)
+		# Add current persistent knockback velocity to our local velocity
+		velocity += kb.current_velocity
+
 	if is_snapped:
-		# fixme this is very buggy and hacky, if the player is moving up through a platform and then down again in the same frame, they can get "stuck" to the platform. A more robust solution would involve checking the trajectory of the player within the frame.
+		# fixme this is very buggy and hacky ...
 		velocity.y = 0
 		char_node.position.y = current_floor_y - feet_offset
 		if char_node.is_in_group("Player"):

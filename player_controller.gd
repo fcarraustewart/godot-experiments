@@ -3,7 +3,7 @@ extends BaseEntity
 class_name PlayerController
 
 # --- CONFIG ---
-const SPEED = 500.0
+const SPEED = 600.0
 # ... (rest of constants)
 const ATTACK_DURATION = 0.3
 const DASH_DURATION = 0.2
@@ -56,8 +56,22 @@ var legs_jumping: Sprite2D
 var body_dash: Sprite2D
 var legs_dash: Sprite2D
 
+var body_combat: Sprite2D
+var legs_combat: Sprite2D
+var body_hurt: Sprite2D
+var legs_hurt: Sprite2D
+var body_knockdown: Sprite2D
+var legs_knockdown: Sprite2D
+var body_cast1: Sprite2D
+var legs_cast1: Sprite2D
+var body_cast2: Sprite2D
+var legs_cast2: Sprite2D
+
 var current_body_layer: Sprite2D
 var current_legs_layer: Sprite2D
+
+var body_landing: Sprite2D
+var legs_landing: Sprite2D
 # ---------------------------------------------
 
 var axe_ctrl # Procedural axe controller
@@ -80,7 +94,7 @@ var jump_component: JumpComponent
 var movement_component: MovementComponent
 var action_component: ActionComponent
 var aim_component: AimComponent
-var knockback_component: KnockbackComponent
+# var knockback_component: KnockbackComponent moved to baseentity
 var interaction_component: InteractionComponent
 var inventory_component: InventoryComponent
 
@@ -132,27 +146,38 @@ func _on_interruption(reason: BaseEntity.Reason):
 			change_state(State.INTERRUPTED)
 
 		BaseEntity.Reason.PARRIED:
-			if current_state == State.ATTACKING or State.ATTACKING_2 or State.ATTACKING_3:
+			if current_state == State.ATTACKING or current_state == State.ATTACKING_2 or current_state == State.ATTACKING_3:
 				change_state(State.STUNNED)
 
 		BaseEntity.Reason.STUNNED:
 			change_state(State.STUNNED)
 		
 		BaseEntity.Reason.HIT:
-			if current_state == BaseEntity.State.CASTING:
-				var knockback_delay = interruption_component.handle_hit(current_state, state_timer, casting_component.casting_time)
-				state_timer -= knockback_delay
-				casting_component.emit_signal("cast_knockback", knockback_delay)
-
-				if knockback_delay > 0:
-					print("[player_controller] Knockback applied!")
-					# Use KnockbackComponent instead of raw velocity +=
-					var enemy = get_node_or_null("/root/Main/Enemy")
-					var dir = (position - (enemy.position if enemy else position)).normalized()
-					knockback_component.apply_impulse(dir, 200.0)
-
+			if current_state == BaseEntity.State.CASTING or current_state == State.ATTACKING or current_state == State.ATTACKING_2 or current_state == State.ATTACKING_3:
+				casting_component.interrupt(reason)
+		
 		BaseEntity.Reason.OTHER:
 			change_state(State.IDLE)
+
+func apply_hit(amount: float, source: Node2D):
+	if source and source.is_in_group("ArcaneMissile"):
+		# Knockdown interrupts EVERYTHING
+		casting_component.interrupt(BaseEntity.Reason.HIT)
+		
+		if current_state != State.KNOCKDOWN:
+			change_state(State.KNOCKDOWN)
+			state_timer = 1.0 # 1 second knockdown
+			
+			var dir = (global_position - source.global_position).normalized()
+			if dir == Vector2.ZERO: dir = Vector2.UP
+			
+			knockback_component.apply_impulse(dir, 100.0)
+
+		return
+		
+	# Standard hit
+	state_timer = 0.2
+	change_state(State.HURT)
 
 func _on_jumped():
 	print("[player_controller]Player jumped!")
@@ -173,6 +198,8 @@ func _on_jump_peak():
 
 func _on_falling():
 	print("[player_controller]Player is falling!")
+	if self.is_incapacitated():
+		return
 	if current_state != BaseEntity.State.FALLING:
 		change_state(BaseEntity.State.FALLING)
 
@@ -325,26 +352,26 @@ func _ready():
 
 	# 2. Running (Layered) - 8 Frames
 	body_running = Sprite2D.new()
-	body_running.texture = load("res://art/RunningAnimsBodyLegs/RunningAnimsBody-Run.png")
+	body_running.texture = load("res://art/64by64RunningAnimsBodyLegs/64by64RunningAnimsBody-Run.png")
 	body_running.hframes = 8
 	body_running.visible = false
 	add_child(body_running)
 	
 	legs_running = Sprite2D.new()
-	legs_running.texture = load("res://art/RunningAnimsBodyLegs/RunningAnimsLegs-Run.png")
+	legs_running.texture = load("res://art/64by64RunningAnimsBodyLegs/64by64RunningAnimsLegs-Run.png")
 	legs_running.hframes = 8
 	legs_running.visible = false
 	add_child(legs_running)
 
-	# 3. Jumping (Layered) - 11 Frames (Assuming same frame count as old jumping)
+	# 3. Jumping (Layered) - 11 Frames
 	body_jumping = Sprite2D.new()
-	body_jumping.texture = load("res://art/RunningAnimsBodyLegs/RunningAnimsBody-Jump.png")
+	body_jumping.texture = load("res://art/64by64RunningAnimsBodyLegs/64by64RunningAnimsBody-Jump.png")
 	body_jumping.hframes = 11
 	body_jumping.visible = false
 	add_child(body_jumping)
 	
 	legs_jumping = Sprite2D.new()
-	legs_jumping.texture = load("res://art/RunningAnimsBodyLegs/RunningAnimsLegs-Jump.png")
+	legs_jumping.texture = load("res://art/64by64RunningAnimsBodyLegs/64by64RunningAnimsLegs-Jump.png")
 	legs_jumping.hframes = 11
 	legs_jumping.visible = false
 	add_child(legs_jumping)
@@ -361,6 +388,85 @@ func _ready():
 	legs_dash.hframes = 7
 	legs_dash.visible = false
 	add_child(legs_dash)
+
+	# 5. Combat (Layered) - 3 Frames
+	body_combat = Sprite2D.new()
+	body_combat.texture = load("res://art/64by64RunningAnimsBodyLegs/64by64RunningAnimsBody-Combat.png")
+	body_combat.hframes = 3
+	body_combat.visible = false
+	add_child(body_combat)
+	
+	legs_combat = Sprite2D.new()
+	legs_combat.texture = load("res://art/64by64RunningAnimsBodyLegs/64by64RunningAnimsLegs-Combat.png")
+	legs_combat.hframes = 3
+	legs_combat.visible = false
+	add_child(legs_combat)
+
+	# 6. Hurt (Layered) - 2 Frames
+	body_hurt = Sprite2D.new()
+	body_hurt.texture = load("res://art/64by64RunningAnimsBodyLegs/64by64RunningAnimsBody-Hurt.png")
+	body_hurt.hframes = 2
+	body_hurt.visible = false
+	add_child(body_hurt)
+	
+	legs_hurt = Sprite2D.new()
+	legs_hurt.texture = load("res://art/64by64RunningAnimsBodyLegs/64by64RunningAnimsLegs-Hurt.png")
+	legs_hurt.hframes = 2
+	legs_hurt.visible = false
+	add_child(legs_hurt)
+
+	# 7. Knockdown (Layered) - 6 Frames
+	body_knockdown = Sprite2D.new()
+	body_knockdown.texture = load("res://art/64by64RunningAnimsBodyLegs/64by64RunningAnimsBody-Knockdown.png")
+	body_knockdown.hframes = 6
+	body_knockdown.visible = false
+	add_child(body_knockdown)
+	
+	legs_knockdown = Sprite2D.new()
+	legs_knockdown.texture = load("res://art/64by64RunningAnimsBodyLegs/64by64RunningAnimsLegs-Knockdown.png")
+	legs_knockdown.hframes = 6
+	legs_knockdown.visible = false
+	add_child(legs_knockdown)
+	
+	# 8. Cast 1 (Layered) - 6 Frames
+	body_cast1 = Sprite2D.new()
+	body_cast1.texture = load("res://art/64by64RunningAnimsBodyLegs/64by64RunningAnimsBody-Cast1.png")
+	body_cast1.hframes = 6
+	body_cast1.visible = false
+	add_child(body_cast1)
+	
+	legs_cast1 = Sprite2D.new()
+	legs_cast1.texture = load("res://art/64by64RunningAnimsBodyLegs/64by64RunningAnimsLegs-Cast1.png")
+	legs_cast1.hframes = 6
+	legs_cast1.visible = false
+	add_child(legs_cast1)
+
+	# 9. Cast 2 (Layered) - 6 Frames
+	body_cast2 = Sprite2D.new()
+	body_cast2.texture = load("res://art/64by64RunningAnimsBodyLegs/64by64RunningAnimsBody-Cast2.png")
+	body_cast2.hframes = 6
+	body_cast2.visible = false
+	add_child(body_cast2)
+	
+	legs_cast2 = Sprite2D.new()
+	legs_cast2.texture = load("res://art/64by64RunningAnimsBodyLegs/64by64RunningAnimsLegs-Cast2.png")
+	legs_cast2.hframes = 6
+	legs_cast2.visible = false
+	add_child(legs_cast2)
+	
+	# 10. Landing (Layered) - 6 Frames
+	body_landing = Sprite2D.new()
+	body_landing.texture = load("res://art/64by64RunningAnimsBodyLegs/64by64RunningAnimsBody-Landing.png")
+	body_landing.hframes = 6
+	body_landing.visible = false
+	add_child(body_landing)
+	
+	legs_landing = Sprite2D.new()
+	legs_landing.texture = load("res://art/64by64RunningAnimsBodyLegs/64by64RunningAnimsLegs-Landing.png")
+	legs_landing.hframes = 6
+	legs_landing.visible = false
+	add_child(legs_landing)
+	
 	# --------------------------------------
 		# 7. Cleave Attack 1 (Front to Back)
 	attack2 = Sprite2D.new()
@@ -397,7 +503,7 @@ func _ready():
 	fire_chains_ctrl.game_node = game_node
 	add_child(fire_chains_ctrl)
 	
-	var meteor_strike_ctrl = load("res://meteor_strike_controller.gd").new()
+	meteor_strike_ctrl = load("res://meteor_strike_controller.gd").new()
 	meteor_strike_ctrl.name = "MeteorStrikeController"
 	meteor_strike_ctrl.game_node = game_node
 	add_child(meteor_strike_ctrl)
@@ -413,9 +519,6 @@ func _ready():
 
 	aim_component = AimComponent.new(self )
 	add_child(aim_component)
-
-	knockback_component = KnockbackComponent.new(self )
-	add_child(knockback_component)
 
 	interaction_component = InteractionComponent.new(self )
 	add_child(interaction_component)
@@ -522,6 +625,7 @@ func _physics_process(delta):
 
 	# 4. Knockback decay
 	knockback_component.update(delta)
+	velocity += knockback_component.current_velocity
 
 	# 5. Apply physics
 	move_and_slide()
@@ -541,8 +645,12 @@ func _process(delta):
 			process_casting(delta)
 		State.JUMPING, State.JUMP_PEAK, State.FALLING:
 			process_jumping(delta)
-		State.DASHING, State.LANDING:
+		State.DASHING:
 			process_dashing(delta)
+		State.LANDING:
+			process_running(delta) # Landing is a subset of movement logic now
+		State.KNOCKDOWN:
+			process_knockdown(delta)
 		State.STUNNED:
 			process_stunned(delta)
 		State.INTERRUPTED:
@@ -587,11 +695,18 @@ func process_running(_delta):
 	update_aim_indicator()
 
 	if current_state == State.LANDING:
-		# After landing, we want to transition to idle or running based on input
-		if input_throttle != 0:
-			change_state(State.RUNNING)
-		else:
-			change_state(State.IDLE)
+		state_timer -= _delta
+		if state_timer <= 0:
+			if input_throttle != 0:
+				change_state(State.RUNNING)
+			else:
+				change_state(State.IDLE)
+
+func process_knockdown(delta):
+	state_timer -= delta
+	print("[player_controller] Knockdown timer: %f", state_timer)
+	if state_timer <= 0:
+		change_state(State.IDLE)
 
 func process_hurt(delta):
 	check_movement_input()
@@ -601,7 +716,9 @@ func process_hurt(delta):
 		change_state(State.IDLE)
 
 func process_attacking(delta):
-	velocity.x = 0 # Root while attacking? Or allow slide? Let's root for impact.
+	check_movement_input()
+	check_action_input()
+	update_aim_indicator()
 	state_timer -= delta
 	if state_timer <= 0:
 		change_state(State.IDLE)
@@ -723,6 +840,10 @@ func sprite_swap():
 			# --- AUTO-SCALE ---
 			var target_display_size: float = 128.0
 			
+			# SKIP SCALING for 64x64 folder assets - they should be 1:1 (rendered at 64px)
+			if active.texture.resource_path.contains("64by64"):
+				target_display_size = 64.0
+			
 			var frame_w = float(cell_width)
 			var frame_h = float(total_h)
 			
@@ -797,6 +918,9 @@ func change_state(new_state):
 	
 	if new_state == State.IDLE:
 		idle_timer = 0.0 # Reset idle timer when we enter idle
+	
+	if new_state == State.LANDING:
+		state_timer = 0.3 # Duration of landing animation
 
 	current_state = new_state
 	# Visibility handled in _process nuclear loop now
@@ -817,7 +941,12 @@ func _hide_all_sprites():
 		body_running_idle, legs_running_idle,
 		body_running, legs_running,
 		body_jumping, legs_jumping,
-		body_dash, legs_dash
+		body_dash, legs_dash,
+		body_combat, legs_combat,
+		body_hurt, legs_hurt,
+		body_knockdown, legs_knockdown,
+		body_cast1, legs_cast1, body_cast2, legs_cast2,
+		body_landing, legs_landing
 	]
 	for s in all_sprites:
 		if is_instance_valid(s):
@@ -825,16 +954,47 @@ func _hide_all_sprites():
 			s.modulate.a = 1.0
 
 func get_active_sprites() -> Array:
+	var leg_layers = []
+	if not is_on_floor():
+		leg_layers = [legs_jumping]
+	elif velocity.length() > 50:
+		leg_layers = [legs_running]
+	else:
+		# Standalone state case logic below
+		pass
+
 	match current_state:
-		State.ATTACKING: return [attack1]
-		State.ATTACKING_2: return [attack2]
-		State.ATTACKING_3: return [attack3]
-		State.RUNNING, State.LANDING: return [body_running, legs_running]
+		State.ATTACKING:
+			if leg_layers.size() > 0: return [attack1] + leg_layers
+			return [attack1]
+		State.ATTACKING_2:
+			if leg_layers.size() > 0: return [body_cast2] + leg_layers
+			return [body_cast2, legs_cast2]
+		State.ATTACKING_3:
+			if leg_layers.size() > 0: return [body_cast1] + leg_layers
+			return [body_cast1, legs_cast1]
+		State.RUNNING: return [body_running, legs_running]
+		State.LANDING: return [body_landing, legs_landing]
 		State.JUMPING, State.JUMP_PEAK, State.FALLING: return [body_jumping, legs_jumping]
 		State.DASHING: return [body_dash, legs_dash]
 		State.CASTING: return [casting]
 		State.CASTING_COMPLETE: return [casting_success]
-		State.IDLE: return [body_running_idle, legs_running_idle]
+		State.HURT: return [body_hurt, legs_hurt]
+		State.KNOCKDOWN: return [body_knockdown, legs_knockdown]
+		State.COMBAT:
+			if leg_layers.size() > 0: return [body_combat] + leg_layers
+			return [body_combat, legs_combat]
+		State.IDLE:
+			# Automatically swap to Combat Stance if enemies near
+			var in_combat_range = false
+			for e in get_tree().get_nodes_in_group("Enemy"):
+				if e.global_position.distance_to(global_position) < 250.0:
+					in_combat_range = true
+					break
+			if in_combat_range:
+				if leg_layers.size() > 0: return [body_combat] + leg_layers
+				return [body_combat, legs_combat]
+			return [body_running_idle, legs_running_idle]
 		State.STATIONARY: return [stationary]
 		_: return [sprite]
 
@@ -845,9 +1005,11 @@ func update_animation(_delta):
 	match current_state:
 		State.ATTACKING, State.ATTACKING_2, State.ATTACKING_3:
 			var actives = get_active_sprites()
+			# Map 0.3s ATTACK_DURATION to 6 frames roughly (50ms per frame)
+			var t = Time.get_ticks_msec() / 50.0
 			for active in actives:
-				var t = Time.get_ticks_msec() / 100.0
-				active.frame = (int(t)) % active.hframes
+				if is_instance_valid(active):
+					active.frame = (int(t)) % active.hframes
 		State.CASTING_COMPLETE:
 			var h_cnt: int = 0
 			var ctrl = casting_component.active_skill_ctrl
@@ -883,10 +1045,39 @@ func update_animation(_delta):
 			var t = Time.get_ticks_msec() / 50.0
 			body_dash.frame = (int(t)) % body_dash.hframes
 			legs_dash.frame = (int(t)) % legs_dash.hframes
-		State.IDLE:
+		State.IDLE, State.COMBAT:
 			var t = Time.get_ticks_msec() / 150.0
-			body_running_idle.frame = (int(t)) % body_running_idle.hframes
-			legs_running_idle.frame = (int(t)) % legs_running_idle.hframes
+			var active_body = body_combat if current_state == State.COMBAT else body_running_idle
+			var active_legs = legs_combat if current_state == State.COMBAT else legs_running_idle
+			
+			# Internal logic: get_active_sprites might have returned combat due to proximity
+			var current_actives = get_active_sprites()
+			if body_combat in current_actives:
+				body_combat.frame = (int(t)) % body_combat.hframes
+				legs_combat.frame = (int(t)) % legs_combat.hframes
+			else:
+				body_running_idle.frame = (int(t)) % body_running_idle.hframes
+				legs_running_idle.frame = (int(t)) % legs_running_idle.hframes
+		State.LANDING:
+			var t = Time.get_ticks_msec() / 100.0
+			body_landing.frame = (int(t)) % body_landing.hframes
+			legs_landing.frame = (int(t)) % legs_landing.hframes
+		State.HURT:
+			var t = Time.get_ticks_msec() / 100.0
+			body_hurt.frame = (int(t)) % body_hurt.hframes
+			legs_hurt.frame = (int(t)) % legs_hurt.hframes
+		State.KNOCKDOWN:
+			var t = Time.get_ticks_msec() / 100.0
+			# First 4 frames are the flicnh/tumble
+			if state_timer > 0.8:
+				body_knockdown.frame = (int(t)) % 4
+				legs_knockdown.frame = (int(t)) % 4
+			elif velocity.length() > 50.0:
+				body_knockdown.frame = 3
+				legs_knockdown.frame = 3
+			else:
+				body_knockdown.frame = 5
+				legs_knockdown.frame = 5
 		State.STATIONARY:
 			var t = Time.get_ticks_msec() / 200.0
 			stationary.frame = (int(t)) % stationary.hframes
@@ -933,6 +1124,7 @@ func on_interaction_fail(reason: String):
 	# If we are currently casting and we get a failure, track it
 	if current_state == State.CASTING or current_state == State.CASTING_COMPLETE:
 		if reason == "OUT_OF_RANGE" or reason == "TARGET_INVALID":
+			casting_component.interrupt(BaseEntity.Reason.FAILED)
 			print("[player_controller] recvd CombatManager fail")
 			casting_component.last_cast_success = false
 			# Force jump back to IDLE if the interaction failed mid-cast

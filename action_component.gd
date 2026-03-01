@@ -16,7 +16,8 @@ func _init(player) -> void:
 func handle_action(action_name: String, data: Dictionary) -> void:
 	if not is_instance_valid(_player):
 		return
-
+	if _player.has_method("is_incapacitated") and _player.is_incapacitated(): 
+		return
 	match action_name:
 		"mouse_direction":
 			# Use global space, not viewport screen space, for accurate aiming

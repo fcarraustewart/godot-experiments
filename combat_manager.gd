@@ -176,14 +176,6 @@ func request_interaction(source: Node2D, target: Node2D, type: String, data: Dic
 	if not is_instance_valid(target) or not is_instance_valid(source):
 		return false
 
-	# flash on hit
-	if type == "damage":
-		var s = _get_sprite(target)
-		if s:
-			var prev_mod = s.modulate
-			s.modulate = Color(15, 15, 15, 1) # Super Bright flash
-			get_tree().create_timer(0.05).timeout.connect(func(): if is_instance_valid(s): s.modulate = prev_mod)
-
 	# 1. RANGE RE-VALIDATION
 	var distance = source.position.distance_to(target.position)
 	var max_range = data.get("range", 9999.0)
@@ -207,6 +199,17 @@ func request_interaction(source: Node2D, target: Node2D, type: String, data: Dic
 	match type:
 		"damage":
 			_handle_damage(source, target, data)
+
+			# flash on hit
+			if target.has_method("apply_flash_effect"):
+				target.apply_flash_effect()
+			else:
+				var s = _get_sprite(target)
+				if s:
+					var prev_mod = s.modulate
+					s.modulate = Color(15, 15, 15, 1) # Super Bright flash
+					get_tree().create_timer(0.05).timeout.connect(func(): if is_instance_valid(s): s.modulate = prev_mod)
+
 		"cc": # Slow, Root, Stun
 			_handle_crowd_control(source, target, data)
 		"interrupt":
@@ -234,11 +237,9 @@ func _handle_crowd_control(source, target, data):
 		emit_signal("effect_applied", target, cc_type, duration)
 		_notify_success(source, "CC_SUCCESS", {"type": cc_type})
 
-func _handle_interrupt(source, target, data):
-	if target.has_method("kicked"):
-		target.kicked()
-		_create_floating_text(target.position, "INTERRUPTED!", Color.ORANGE)
-		_notify_success(source, "INTERRUPTED", {"target": target})
+func _handle_interrupt(source, target, _data):
+	_create_floating_text(target.position, "INTERRUPTED!", Color.ORANGE)
+	_notify_success(source, "INTERRUPTED", {"target": target})
 
 # --- VISUAL HELPERS ---
 
