@@ -1,0 +1,29 @@
+[gd_scene load_steps=4 format=3 uid="uid://buiwb1jjaesl0"]
+
+[ext_resource type="PackedScene" uid="uid://bp0hfw7r5wxto" path="res://show_spectrum2.tscn" id="1_jau6q"]
+[ext_resource type="Shader" path="res://sub_viewport_show_spectrum2.gdshader" id="1_y8o3g"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_1w8o2"]
+shader = ExtResource("1_y8o3g")
+shader_parameter/cam_offset = Vector2(0, 0)
+
+[node name="Game" type="Node2D"]
+
+[node name="SubViewportContainer" type="SubViewportContainer" parent="."]
+material = SubResource("ShaderMaterial_1w8o2")
+offset_left = -8.0
+offset_top = -8.0
+offset_right = 314.0
+offset_bottom = 174.0
+
+[node name="SubViewport" type="SubViewport" parent="SubViewportContainer"]
+handle_input_locally = false
+size = Vector2i(322, 182)
+render_target_update_mode = 4
+
+[node name="Scene" parent="SubViewportContainer/SubViewport" instance=ExtResource("1_jau6q")]
+
+[node name="Label" type="Label" parent="."]
+offset_right = 40.0
+offset_bottom = 23.0
+text = "HelloWorld"

@@ -11,6 +11,9 @@ extends Node
 var game_node: Node2D
 var host: Node2D
 
+var TEX_MISSILE_1 = preload("res://art/barbudo32p32p/ArcaneMissile.png")
+var TEX_MISSILE_2 = preload("res://art/barbudo32p32p/ArcaneMissile2.png")
+
 func _ready():
 	host = get_parent()
 
@@ -47,7 +50,7 @@ func cast_missiles(target: Node2D):
 	
 	var thinker = MissileThinker.new()
 	swarm.add_child(thinker)
-	thinker.setup(swarm, target, DAMAGE, LIFETIME)
+	thinker.setup(swarm, target, DAMAGE, LIFETIME, TEX_MISSILE_1, TEX_MISSILE_2)
 
 class MissileThinker extends Node:
 	var swarm: BaseFlockSwarm
@@ -57,11 +60,16 @@ class MissileThinker extends Node:
 	var timer = 0.0
 	var hit_cooldown = 0.0
 	
-	func setup(p_swarm, p_target, p_damage, p_lifetime):
+	var tex1: Texture2D
+	var tex2: Texture2D
+	
+	func setup(p_swarm, p_target, p_damage, p_lifetime, p_tex1, p_tex2):
 		swarm = p_swarm
 		target = p_target
 		damage = p_damage
 		lifetime = p_lifetime
+		tex1 = p_tex1
+		tex2 = p_tex2
 	func impact():
 		if is_instance_valid(swarm): swarm.queue_free()
 
@@ -73,10 +81,10 @@ class MissileThinker extends Node:
 			
 		if not is_instance_valid(target): return
 		
-		if(timer > lifetime/2):
-			swarm.update_material(load("res://art/barbudo32p32p/ArcaneMissile.png"))
+		if (timer > lifetime / 2):
+			swarm.update_material(tex1)
 		else:
-			swarm.update_material(load("res://art/barbudo32p32p/ArcaneMissile2.png"))
+			swarm.update_material(tex2)
 
 		hit_cooldown -= delta
 		if hit_cooldown > 0: return
@@ -91,10 +99,11 @@ class MissileThinker extends Node:
 				hit_cooldown = 0.2
 				break
 
-	func on_interaction_failed():
+	func on_interaction_success(_msg, _meta):
+		# On CombatManager ack: Missile successfully hit. Clean up.
 		impact()
-		pass
 
-	func on_interaction_success():
-		# On CombatManager ack: Explode the missile that hit player
-		pass
+	func on_interaction_fail(reason: String):
+		# If it somehow failed validation, clean up
+		print("[ArcaneMissile] Interaction failed: ", reason)
+		impact()
