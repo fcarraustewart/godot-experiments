@@ -704,7 +704,6 @@ func process_running(_delta):
 
 func process_knockdown(delta):
 	state_timer -= delta
-	print("[player_controller] Knockdown timer: %f", state_timer)
 	if state_timer <= 0:
 		change_state(State.IDLE)
 

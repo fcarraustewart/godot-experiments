@@ -21,38 +21,47 @@ func _process_subpixel_fix(p_target: Node2D, delta: float):
 	if not is_instance_valid(p_target) or not Globals.viewport:
 		return
 		
-	# 1. Dynamic Zoom
+	# 1. Update Zoom & Shake Strength (Lerp them for smoothness)
 	zoom = zoom.lerp(target_zoom, zoom_lerp_speed * delta)
-
-	# 2. Screenshake
 	if shake_strength > 0:
 		shake_strength = lerp(shake_strength, 0.0, shake_decay * delta)
-		var shake_offset = Vector2(
+
+	# 2. Mouse Position / Lean calculation
+	# Calculate relative offset from viewport center (0,0)
+	var mouse_relative = (Globals.viewport.get_mouse_position() / window_scale) - (game_size / 2)
+	
+	# Adjust lean for zoom so the look-ahead feels consistent
+	var lean_offset = (mouse_relative / zoom) * 0.7
+	var ideal_focus_pos = p_target.global_position + lean_offset
+	
+	# 3. Smooth the base camera position (actual_cam_pos is the floating-point "head")
+	actual_cam_pos = lerp(actual_cam_pos, ideal_focus_pos, 5 * delta)
+	
+	# 4. Generate raw high-frequency shake
+	var current_shake = Vector2.ZERO
+	if shake_strength > 0.01:
+		current_shake = Vector2(
 			randf_range(-shake_strength, shake_strength),
 			randf_range(-shake_strength, shake_strength)
 		)
-		offset = shake_offset # Camera2D internal offset
-	else:
-		offset = Vector2.ZERO
 
-	# 3. Mouse Position
-	var mouse_pos = (Globals.viewport.get_mouse_position() / window_scale) - (game_size / 2) + p_target.global_position
+	# 5. Combined Final Floating Position
+	var final_pos = actual_cam_pos + current_shake
 	
-	# Using a lerp, the cameras position is moved towards the mouse position
-	var cam_pos = lerp(p_target.global_position, mouse_pos, 0.7)
+	# 6. Apply Jitter Resolution
+	# Logical position must be Integer for the SubViewport grid to avoid crawling
+	var rounded_pos = final_pos.round()
+	# The remainder is the sub-pixel shift we send to the high-res shader
+	var cam_subpixel_pos = rounded_pos - final_pos
 	
-	# Use another lerp to make the movement smooth
-	actual_cam_pos = lerp(actual_cam_pos, cam_pos, 5 * delta)
-	
-	# Calculate the "subpixel" position of the new camera position
-	var cam_subpixel_pos = actual_cam_pos.round() - actual_cam_pos
-	
-	# Update the Main ViewportContainer's shader uniform (Godot 4 uses set_shader_parameter)
+	# Update Shader
 	if Globals.viewport_container and Globals.viewport_container.material:
 		Globals.viewport_container.material.set_shader_parameter("cam_offset", cam_subpixel_pos)
 	
-	# Set the camera's position to the new position and round it.
-	global_position = actual_cam_pos.round()
+	# Final Placement (Must be rounded!)
+	global_position = rounded_pos
+	# Reset built-in offset as we've integrated shake into the subpixel pos
+	offset = Vector2.ZERO
 
 func _init():
 	print("[CameraDebug] Script _init called.")
@@ -106,15 +115,10 @@ func _process(delta):
 	
 	# 1. Main Follow & Jitter Fix logic
 	if is_instance_valid(target):
-		# Follow
-		var target_pos = target.position + target_offset
-		position = position.lerp(target_pos, lerp_speed * delta)
-		
-		# Jitter Fix (Mouse lean + subpixel offset)
 		_process_subpixel_fix(target, delta)
 		
 		if Engine.get_process_frames() % 120 == 0:
-			print("[CameraDebug] Target: %s | CamPos: %s | TargetPos: %s" % [target.name, position, target_pos])
+			print("[CameraDebug] Target: %s | CamPos: %s" % [target.name, position])
 	else:
 		# If no target, ensure actual_cam_pos stays in sync to avoid logic jumps if target reappears
 		actual_cam_pos = global_position
