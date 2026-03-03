@@ -93,7 +93,7 @@ class MissileThinker extends Node:
 		var count = swarm.get_unit_count()
 		for i in range(count):
 			var pos = swarm.get_unit_position(i)
-			if pos.distance_to(target.global_position) < 40.0:
+			if pos.distance_to(target.global_position) < 16.0:
 				if CombatManager:
 					CombatManager.request_interaction(swarm, target, "damage", {"amount": damage})
 				hit_cooldown = 0.2

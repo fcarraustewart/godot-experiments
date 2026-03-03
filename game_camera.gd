@@ -14,7 +14,7 @@ var base_zoom: Vector2 = Vector2(1.0, 1.0)
 var target_zoom: Vector2 = Vector2(1.0, 1.0)
 
 var game_size = Vector2(320, 180) # Should match the logical size of the game viewport
-var window_scale = get_viewport().size.x / game_size.x
+var window_scale = float(Globals.viewport.size.x) / get_tree().root.content_scale_size.x
 var actual_cam_pos = global_position
 
 func _process_subpixel_fix(p_target: Node2D, delta: float):
@@ -22,13 +22,21 @@ func _process_subpixel_fix(p_target: Node2D, delta: float):
 		return
 		
 	# 1. Update Zoom & Shake Strength (Lerp them for smoothness)
-	zoom = zoom.lerp(target_zoom, zoom_lerp_speed * delta)
+	# zoom = zoom.lerp(target_zoom, zoom_lerp_speed * delta)
 	if shake_strength > 0:
 		shake_strength = lerp(shake_strength, 0.0, shake_decay * delta)
 
 	# 2. Mouse Position / Lean calculation
 	# Calculate relative offset from viewport center (0,0)
-	var mouse_relative = (Globals.viewport.get_mouse_position() / window_scale) - (game_size / 2)
+	# --- PIXEL PERFECT SNAPPING ---
+	# Calculate the upscale factor (Logical -> Physical)
+	# This ensures we only shift by whole monitor pixels, preventing blur.
+	var monitor_upscale = float(Globals.viewport.size.x)  / game_size.x
+	if monitor_upscale == 0: monitor_upscale = 1.0
+	window_scale = monitor_upscale
+	# ------------------------------
+
+	var mouse_relative = (get_viewport().get_mouse_position() / window_scale) - (game_size / 2)
 	
 	# Adjust lean for zoom so the look-ahead feels consistent
 	var lean_offset = (mouse_relative / zoom) * 0.7
@@ -51,12 +59,14 @@ func _process_subpixel_fix(p_target: Node2D, delta: float):
 	# 6. Apply Jitter Resolution
 	# Logical position must be Integer for the SubViewport grid to avoid crawling
 	var rounded_pos = final_pos.round()
+	
 	# The remainder is the sub-pixel shift we send to the high-res shader
-	var cam_subpixel_pos = rounded_pos - final_pos
+	var raw_subpixel_pos = rounded_pos - final_pos
+	var snapped_offset = (raw_subpixel_pos * monitor_upscale).round() / monitor_upscale
 	
 	# Update Shader
 	if Globals.viewport_container and Globals.viewport_container.material:
-		Globals.viewport_container.material.set_shader_parameter("cam_offset", cam_subpixel_pos)
+		Globals.viewport_container.material.set_shader_parameter("cam_offset", snapped_offset)
 	
 	# Final Placement (Must be rounded!)
 	global_position = rounded_pos
@@ -70,7 +80,7 @@ func _ready():
 	print("[CameraDebug] Script _ready called.")
 
 	game_size = Vector2(320, 180) # Should match the logical size of the game viewport
-	window_scale = (get_viewport().size.x / game_size.x)
+	window_scale = float(Globals.viewport.size.x) / game_size.x
 	actual_cam_pos = global_position
 	
 	# Initialize zoom to whatever it is in the inspector

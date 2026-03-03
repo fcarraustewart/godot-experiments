@@ -37,7 +37,7 @@ func update(delta: float):
 			coyote_timer = 0.0
 			jump_buffer_timer = 0.0
 			parent.set("gravity_multiplier", falling_gravity_mult * 2)
-			print("[JumpComponent] CC'd falling with gravity falling_gravity_mult * 2")
+
 			return
 
 		if coyote_timer > 0:

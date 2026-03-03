@@ -31,7 +31,6 @@ func update(_delta: float) -> void:
 	var throttle: float = _player.input_throttle
 
 	if _player.is_incapacitated():
-		print("[MovementComponent] CC'd can't move")
 		throttle = 0.0
 
 	var state = _player.current_state

@@ -101,14 +101,14 @@ func start_charging(source: Vector2, target):
 		var angle = i * TAU / 16.0
 		points.append(Vector2(cos(angle), sin(angle)) * 30.0)
 	charge_circle.polygon = points
-	charge_circle.color = Color(0.6, 0.9, 1.0, 0.6)
+	charge_circle.color = Color(0.6, 0.9, 1.0, 0.3)
 	charge_circle.position = Vector2.ZERO # Centered on player parent
 	charge_effect_node.add_child(charge_circle)
 	game_node.player.add_child(charge_effect_node)
 	
 	var tween = create_tween()
 	tween.parallel().tween_property(charge_circle, "modulate:a", 1.5, CAST_TIME)
-	tween.parallel().tween_property(charge_circle, "scale", Vector2(2.5, 2.5), CAST_TIME)
+	tween.parallel().tween_property(charge_circle, "scale", Vector2(1.3, 1.3), CAST_TIME)
 
 func interrupt_charging():
 	is_casting = false

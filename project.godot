@@ -23,8 +23,8 @@ config/icon="res://icon.webp"
 PhysicsManager="*res://physics_manager.gd"
 CombatManager="*res://combat_manager.gd"
 KeybindListener="*res://keybind_listener.gd"
-Globals="*res://singleton.gd"
 DataManager="*res://data_manager.gd"
+Globals="*res://singleton.gd"
 
 [display]
 

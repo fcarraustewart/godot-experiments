@@ -90,7 +90,7 @@ func _update_target_visuals():
 				var mat = ShaderMaterial.new()
 				mat.shader = target_shader
 				mat.set_shader_parameter("border_color", Color(1.0, 0.6, 0.0, 1.0))
-				mat.set_shader_parameter("border_width", 5.0)
+				mat.set_shader_parameter("border_width", 3.0)
 				mat.set_shader_parameter("glow_intensity", 2.0)
 				s.material = mat
 		else:

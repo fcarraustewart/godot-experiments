@@ -1,8 +1,8 @@
 shader_type canvas_item;
 
 uniform vec4 border_color : source_color = vec4(1.0, 0.6, 0.0, 1.0);
-uniform float border_width : hint_range(0.0, 16.0) = 8.0;
-uniform float glow_intensity : hint_range(0.0, 10.0) = 5.0;
+uniform float border_width : hint_range(0.0, 16.0) = 3.0;
+uniform float glow_intensity : hint_range(0.0, 10.0) = 3.0;
 
 void fragment() {
     float size_x = border_width / float(textureSize(TEXTURE, 0).x);
