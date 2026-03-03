@@ -677,7 +677,6 @@ func _ready():
 		if player.casting_component:
 			# Connect Player Signals for FX
 			player.casting_component.cast_started.connect(_on_player_cast_start)
-			player.casting_component.cast_done.connect(_on_player_cast_finished)
 			pass
 	else:
 		print("[ShowSpectrum] WARNING: Camera2D node not found!")
@@ -747,36 +746,6 @@ func _ready():
 func _on_player_cast_start(duration):
 	if player_light:
 		player_light.burst(1.8, duration) # Brighten during cast
-		
-	var cam = $Camera2D
-	if not cam: return
-	
-	# if spell_id == "sword_attack":
-	cam.add_shake(12.0)
-	cam.set_zoom_target(1.15) # Zoom in slightly
-	if player.casting_component.active_skill_ctrl:
-		var spell_id = ""
-		if player.casting_component.active_skill_ctrl.has_method("get_spell_id"):
-			spell_id = player.casting_component.active_skill_ctrl.get_spell_id()
-		else:
-			print("[ShowSpectrum] WARNING: casting_component.active_skill_ctrl has no get_spell_id method.")
-
-		if spell_id == "chain_lightning":
-			cam.add_shake(12.0)
-			cam.set_zoom_target(1.15) # Zoom in slightly
-		elif spell_id == "fire_chains":
-			cam.add_shake(18.0)
-			cam.set_zoom_target(1.2)
-		elif spell_id == "meteor_strike":
-			cam.add_shake(25.0)
-			cam.set_zoom_target(0.85) # Zoom out for impact!
-
-func _on_player_cast_finished():
-	var cam = $Camera2D
-	if cam:
-		print("[ShowSpectrum] Cast finished, resetting zoom.")
-		cam.reset_zoom()
-
 
 func create_spectrum_sprite() -> Sprite2D:
 	var s = Sprite2D.new()

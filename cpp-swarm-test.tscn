@@ -1,0 +1,17 @@
+[gd_scene load_steps=3 format=3 uid="uid://b08naafe23y71"]
+
+[ext_resource type="Script" path="res://Camera2DTests.gd" id="1_fqsgu"]
+[ext_resource type="Script" path="res://base_flock_swarm.gd" id="2_hhebi"]
+
+[node name="Node2D" type="Node2D"]
+position = Vector2(-6, -4)
+
+[node name="Camera2D" type="Camera2D" parent="."]
+position = Vector2(328, 182)
+script = ExtResource("1_fqsgu")
+
+[node name="Node" type="Node" parent="."]
+
+[node name="BaseFlockSwarm" type="Node2D" parent="Node"]
+position = Vector2(328, 178)
+script = ExtResource("2_hhebi")

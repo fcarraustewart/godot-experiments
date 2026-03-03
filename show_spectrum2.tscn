@@ -1,0 +1,16 @@
+[gd_scene load_steps=3 format=3 uid="uid://bp0hfw7r5wxto"]
+
+[ext_resource type="Script" path="res://show_spectrum2.gd" id="1_mrg4q"]
+[ext_resource type="AudioStream" uid="uid://dl3ppges2sw77" path="res://maldita.ogg" id="2_nemil"]
+
+[node name="Node2D" type="Node2D"]
+script = ExtResource("1_mrg4q")
+
+[node name="Player" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("2_nemil")
+volume_db = -80.0
+pitch_scale = 0.6
+autoplay = true
+
+[node name="Camera2D" type="Camera2D" parent="."]
+process_callback = 0

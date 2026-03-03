@@ -2,5 +2,5 @@
 
 [ext_resource type="Script" path="res://arcane_mage.gd" id="1_mage"]
 
-[node name="ArcaneMage" type="Node2D"]
+[node name="ArcaneMage" type="CharacterBody2D"]
 script = ExtResource("1_mage")

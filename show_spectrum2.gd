@@ -13,17 +13,35 @@ var player: PlayerController
 var enemies = []
 const MAX_MAGES = 5
 
+
 # ----------------------------
 # 2. Setup
 # ----------------------------
 
+func _ready_viewport_container_subpixel_fix():
+	var vp = get_viewport()
+	Globals.viewport = vp
+	
+	if vp is SubViewport:
+		var parent = vp.get_parent()
+		if parent is SubViewportContainer:
+			Globals.viewport_container = parent
+			print("[ShowSpectrum2] Subpixel fix: Identified parent SubViewportContainer.")
+		else:
+			print("[ShowSpectrum2] Subpixel fix: Running in SubViewport, but parent is not a Container.")
+	else:
+		print("[ShowSpectrum2] Subpixel fix: Running in root viewport.")
+
 func _ready():
+	_ready_viewport_container_subpixel_fix()
+	
 	# 1. Window & Viewport Setup (Pixel Perfect)
 	var win = get_window()
 	win.size = Vector2i(SCREEN_WIDTH * 4, SCREEN_HEIGHT * 4) # 4x upscale for visibility but 1x logical
 	get_tree().root.content_scale_size = Vector2i(SCREEN_WIDTH, SCREEN_HEIGHT)
 	get_tree().root.content_scale_mode = Window.CONTENT_SCALE_MODE_VIEWPORT
 	get_tree().root.content_scale_aspect = Window.CONTENT_SCALE_ASPECT_KEEP
+	
 	
 	print("[ShowSpectrum2] Initialized Pixel-Perfect 320x180 Viewport.")
 

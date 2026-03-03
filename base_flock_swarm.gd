@@ -8,11 +8,13 @@ extends NativeSwarmManager
 @export var texture: Texture2D
 @export var unit_mesh_scale: Vector2 = Vector2(1.0, 1.0)
 @export var use_colors: bool = false
-@export var manual_spawn: bool = false  ## Set true to skip auto setup_swarm in _ready
-@export var debug_mode: bool = false : set = _set_debug_mode
+@export var manual_spawn: bool = false ## Set true to skip auto setup_swarm in _ready
+@export var debug_mode: bool = false: set = _set_debug_mode
 
 var mm_instance: MultiMeshInstance2D
 var debug_mm_instance: MultiMeshInstance2D
+# New array to hold the individual light nodes
+var light_nodes: Array[LightSpirit] = []
 
 func _ready():
 	_setup_rendering()
@@ -24,9 +26,18 @@ func _ready():
 func _process(_delta):
 	# Keep native base color in sync with Node2D's modulate for tweens/anims
 	base_color = modulate
-	
+
 	if debug_mode:
 		_update_debug_visuals()
+
+	# Sync each light to its corresponding unit
+	# Note: Instance transforms are local to the MultiMeshInstance node
+	var base_pos = mm_instance.global_position
+	for i in range(get_unit_count()):
+		var xform = mm_instance.multimesh.get_instance_transform_2d(i)
+		if i < light_nodes.size():
+			# Apply the unit's local offset to the renderer's global position
+			light_nodes[i].global_position = base_pos + xform.origin
 
 func _set_debug_mode(val):
 	debug_mode = val
@@ -77,13 +88,14 @@ func _setup_rendering():
 		debug_mm_instance.queue_free()
 		debug_mm_instance = null # Clear the reference
 
+	
 func _setup_debug_rendering():
 	if is_instance_valid(debug_mm_instance): debug_mm_instance.queue_free()
 	
 	debug_mm_instance = MultiMeshInstance2D.new()
 	debug_mm_instance.name = "DebugRenderer"
 	add_child(debug_mm_instance)
-	
+
 	var mm = MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_2D
 	mm.use_colors = true
@@ -99,7 +111,10 @@ func _setup_debug_rendering():
 	debug_mm_instance.material = debug_mat
 	
 	debug_mm_instance.z_as_relative = false
-	debug_mm_instance.z_index = 100 
+	debug_mm_instance.z_index = 100
+
+func update_material(new_texture):
+	mm_instance.material.set_shader_parameter("main_texture", new_texture)
 
 func _update_debug_visuals():
 	if not is_instance_valid(debug_mm_instance) or not is_instance_valid(mm_instance): return
@@ -122,4 +137,64 @@ func _update_debug_visuals():
 func spawn_flock():
 	setup_swarm(unit_count, spawn_radius)
 
+	# Clean up old lights if re-initializing
+	for l in light_nodes:
+		if is_instance_valid(l):
+			l.queue_free()
+	light_nodes.clear()
 
+	var count = get_unit_count()
+
+	# Create one LightSpirit for every unit
+	for i in range(count):
+		var l: LightSpirit = LightSpirit.new()
+		l.color = Color(1.5, 0.6, 1.2, 0.8)
+		l.radius = 10.0
+		l.intensity = 2.0
+		l.z_index = 100 # Ensure lights render above the swarm units but below other effects
+		# Add to the SWARM manager, not the MultiMeshInstance
+		add_child(l)
+		light_nodes.append(l)
+
+func on_interaction_failed(reason: String):
+	# get_children().on_interaction_failed()
+	print("[BaseFlockSwarm] combat manager failed interaction. Reason ", reason)
+	pass
+
+func on_interaction_success(msg, _meta):
+	print("[BaseFlockSwarm] combat manager interaction success. Reason ", msg)
+	# On CombatManager ack: Explode the missile that hit player
+
+	# Sync each light to its corresponding unit
+	# Note: Instance transforms are local to the MultiMeshInstance node
+	var base_pos = mm_instance.global_position
+	for i in range(get_unit_count()):
+		var xform = mm_instance.multimesh.get_instance_transform_2d(i)
+		if i < light_nodes.size():
+			# Apply the unit's local offset to the renderer's global position
+			light_nodes[i].global_position = base_pos + xform.origin
+			light_nodes[i].radius = 200.0
+			light_nodes[i].intensity = 20.0
+			var tween = create_tween()
+			tween.parallel().tween_property(light_nodes[i], "intensity", 0, 0.2)
+			set_new_color(i, Color.WHITE)
+	
+	var tween = create_tween()
+	tween.parallel().tween_property(light_nodes[light_nodes.size()-1], "intensity", 0, 0.9)
+	tween.tween_callback(self.queue_free)
+
+	pass
+
+func set_new_color(index: int, color: Color):
+    # # 1. Update the Main Visuals
+	pass
+    # mm_instance.multimesh.set_instance_color(index, color)
+    
+    # # 2. Update the Debug Visuals if they exist
+    # if is_instance_valid(debug_mm_instance):
+    #     debug_mm_instance.multimesh.set_instance_color(index, color)
+        
+    # # 3. If using the Node Array approach, recolor the light too
+    # if index < light_nodes.size():
+    #     light_nodes[index].color = color
+    #     light_nodes[index].setup_visuals() # Refresh the light visuals

@@ -1,0 +1,8 @@
+[gd_scene load_steps=2 format=3 uid="uid://b7kc6jrqmok4k"]
+
+[ext_resource type="Script" path="res://base_flock_swarm.gd" id="1_pjo6m"]
+
+[node name="BaseFlockSwarm" type="Node2D"]
+script = ExtResource("1_pjo6m")
+
+[node name="Camera2D" type="Camera2D" parent="."]

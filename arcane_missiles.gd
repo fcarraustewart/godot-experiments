@@ -5,7 +5,7 @@ extends Node
 
 @export var DAMAGE = 8.0
 @export var UNIT_COUNT = 3
-@export var LIFETIME = 1.50
+@export var LIFETIME = 3.50
 @export var SPEED = 100.0
 
 var game_node: Node2D
@@ -13,6 +13,7 @@ var host: Node2D
 
 func _ready():
 	host = get_parent()
+
 
 func cast_missiles(target: Node2D):
 	if not is_instance_valid(target): return
@@ -22,20 +23,21 @@ func cast_missiles(target: Node2D):
 		
 	var swarm = BaseFlockSwarm.new()
 	swarm.unit_count = UNIT_COUNT
-	swarm.spawn_radius = 200.0
+	swarm.spawn_radius = 20.0
 	swarm.max_speed = SPEED
 	
 	swarm.separation_weight = -0.5
 	swarm.alignment_weight = 1.0
 	swarm.cohesion_weight = 1.5
 	swarm.target_attraction_weight = 8.0
-	swarm.frequency = 2.0
-	swarm.damping = 0.6
+	swarm.frequency = 0.35
+	swarm.damping = 0.1
+	swarm.response = 0.12
 	
-	# swarm.texture = load("res://art/environment/leaf/leaf1.png") # TODO: Arcane missile texture
+	swarm.texture = load("res://art/barbudo32p32p/ArcaneMissile.png") # TODO: Arcane missile texture
 	swarm.unit_mesh_scale = Vector2(0.4, 0.4)
 	swarm.use_colors = true
-	swarm.debug_mode = true
+	swarm.debug_mode = false
 	swarm.set_target_node(target)
 	
 	swarm.global_position = host.global_position + Vector2(0, -30)
@@ -60,7 +62,9 @@ class MissileThinker extends Node:
 		target = p_target
 		damage = p_damage
 		lifetime = p_lifetime
-		
+	func impact():
+		if is_instance_valid(swarm): swarm.queue_free()
+
 	func _process(delta):
 		timer += delta
 		if timer > lifetime or not is_instance_valid(swarm):
@@ -69,6 +73,11 @@ class MissileThinker extends Node:
 			
 		if not is_instance_valid(target): return
 		
+		if(timer > lifetime/2):
+			swarm.update_material(load("res://art/barbudo32p32p/ArcaneMissile.png"))
+		else:
+			swarm.update_material(load("res://art/barbudo32p32p/ArcaneMissile2.png"))
+
 		hit_cooldown -= delta
 		if hit_cooldown > 0: return
 		
@@ -81,3 +90,11 @@ class MissileThinker extends Node:
 					CombatManager.request_interaction(swarm, target, "damage", {"amount": damage})
 				hit_cooldown = 0.2
 				break
+
+	func on_interaction_failed():
+		impact()
+		pass
+
+	func on_interaction_success():
+		# On CombatManager ack: Explode the missile that hit player
+		pass
