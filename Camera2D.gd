@@ -10,12 +10,11 @@ func _ready_viewport_container_subpixel_fix():
 		var parent = vp.get_parent()
 		if parent is SubViewportContainer:
 			Globals.viewport_container = parent
-			print("[ShowSpectrum2] Subpixel fix: Identified parent SubViewportContainer.")
+			print("[Camera2D] Subpixel fix: Identified parent SubViewportContainer.")
 		else:
-			print("[ShowSpectrum2] Subpixel fix: Running in SubViewport, but parent is not a Container.")
+			print("[Camera2D] Subpixel fix: Running in SubViewport, but parent is not a Container.")
 	else:
-		print("[ShowSpectrum2] Subpixel fix: Running in root viewport.")
-
+		print("[Camera2D] Subpixel fix: Running in root viewport.")
 # Called when the node enters the scene tree for the first time.
 func _ready():
 	_ready_viewport_container_subpixel_fix()

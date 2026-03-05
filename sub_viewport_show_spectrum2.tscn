@@ -33,13 +33,15 @@ damping = 0.6
 response = 0.0
 
 [node name="Game" type="Node2D"]
+texture_filter = 1
 
 [node name="SubViewportContainer" type="SubViewportContainer" parent="."]
 material = SubResource("ShaderMaterial_1w8o2")
-offset_left = 59.0
-offset_top = -13.0
-offset_right = 381.0
-offset_bottom = 169.0
+offset_left = -4.0
+offset_top = -4.0
+offset_right = 318.0
+offset_bottom = 178.0
+scale = Vector2(2, 2)
 
 [node name="SubViewport" type="SubViewport" parent="SubViewportContainer"]
 handle_input_locally = false
