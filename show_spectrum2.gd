@@ -13,6 +13,12 @@ var player: PlayerController
 var enemies = []
 const MAX_MAGES = 5
 
+# --- REFLECTIONS ---
+var reflection_manager: NativeReflectionManager
+var all_ponds: Array[Node2D] = []
+var reflection_nodes: Dictionary = {} # Entity -> ReflectionNode
+var background_sprites: Array[Node] = []
+
 
 # ----------------------------
 # 2. Setup
@@ -48,8 +54,7 @@ func _ready():
 	# 2. Backgrounds
 	setup_parallax_background()
 	
-	# 3. Physics Floor (Based on Mountain 3 ground level)
-	# Assuming the 'ground' in the 180px high image is near the bottom
+	# 3. Physics Floor
 	setup_physics_floor()
 
 	# 4. Player
@@ -58,7 +63,11 @@ func _ready():
 	# 5. Arcane Mages
 	setup_mages()
 	
-	# 6. Camera
+	# 6. Reflections
+	setup_reflection_manager()
+	setup_ponds()
+	
+	# 7. Camera
 	setup_camera()
 	
 	# Set CombatManager context
@@ -109,6 +118,7 @@ func setup_parallax_background():
 			sprite.position = Vector2(-tex.get_width() * w_mult / 2.0, y_offset)
 			sprite.z_index = layer_info.z
 			add_child(sprite)
+			background_sprites.append(sprite)
 			
 			# Add subtle drift
 			var drift = Vector2(-2.0 * abs(layer_info.z) / 10.0, 0)
@@ -184,10 +194,105 @@ func setup_camera():
 	if parallax_manager:
 		parallax_manager.camera_node = cam
 
+func setup_reflection_manager():
+	if ClassDB.class_exists("NativeReflectionManager"):
+		reflection_manager = NativeReflectionManager.new()
+		add_child(reflection_manager)
+
+func setup_ponds():
+	# We want ponds "between layer 0 and 1"
+	# Layer 0 (Sky): Z=-10, Factor=1.0
+	# Layer 1 (Mt): Z=-8, Factor=0.8
+	var pond_configs = [
+		{"pos": Vector2(-150, -5), "size": Vector2(120, 30)},
+		{"pos": Vector2(200, -20), "size": Vector2(80, 20)},
+		{"pos": Vector2(500, -45), "size": Vector2(150, 40)}
+	]
+	
+	for cfg in pond_configs:
+		var pond = Node2D.new()
+		pond.name = "Pond_" + str(all_ponds.size())
+		pond.position = cfg.pos
+		pond.z_index = -9 # Between -10 and -8
+		add_child(pond)
+		
+		# structure required by C++: Pond -> Polygon2D "PondWater" -> Node2D "Reflections"
+		var water = Polygon2D.new()
+		water.name = "PondWater"
+		var half_w = cfg.size.x / 2.0
+		var half_h = cfg.size.y / 2.0
+		water.polygon = PackedVector2Array([
+			Vector2(-half_w, 0),
+			Vector2(half_w, 0),
+			Vector2(half_w * 0.8, cfg.size.y),
+			Vector2(-half_w * 0.8, cfg.size.y)
+		])
+		water.color = Color(0.1, 0.3, 0.6, 0.5) # Deep water blue, semi-trans
+		water.clip_children = CanvasItem.CLIP_CHILDREN_AND_DRAW
+		pond.add_child(water)
+		
+		var ref_cont = Node2D.new()
+		ref_cont.name = "Reflections"
+		water.add_child(ref_cont)
+		
+		all_ponds.append(pond)
+		
+		# Add to parallax manager, snapped to sky (Factor 1.0)
+		if parallax_manager:
+			parallax_manager.add_layer_ext(pond, Vector2(1.0, 1.0), Vector2.ZERO)
+
+func _update_reflections():
+	if not reflection_manager: return
+	
+	# 1. Collect entities to reflect
+	var reflect_targets: Array[Node2D] = []
+	if is_instance_valid(player):
+		reflect_targets.append(player)
+		# Ensure player has a reflection node
+		if not reflection_nodes.has(player):
+			var ref = Node2D.new()
+			ref.name = "PlayerReflection"
+			# The manager will Parent it to the correct pond container dynamically
+			reflection_nodes[player] = ref
+
+	for mage in enemies:
+		if is_instance_valid(mage):
+			reflect_targets.append(mage)
+			if not reflection_nodes.has(mage):
+				var ref = Node2D.new()
+				ref.name = "MageReflection_" + mage.name
+				reflection_nodes[mage] = ref
+	
+	# 2. Cleanup invalid nodes in dictionary
+	var to_erase = []
+	for key in reflection_nodes.keys():
+		if not is_instance_valid(key):
+			if is_instance_valid(reflection_nodes[key]):
+				reflection_nodes[key].queue_free()
+			to_erase.append(key)
+	for key in to_erase:
+		reflection_nodes.erase(key)
+
+	# 3. Process
+	# void process_reflections(all_ponds, reflection_nodes, entities, world_children, player, player_light, moon_light, current_frame, screen_height)
+	reflection_manager.process_reflections(
+		all_ponds,
+		reflection_nodes,
+		reflect_targets,
+		background_sprites, # manual_visuals
+		player,
+		null, # player_light (optional)
+		null, # moon_light (optional)
+		Engine.get_process_frames(),
+		SCREEN_HEIGHT
+	)
+
 func _process(delta):
 	# Center logical focus (used by some spell math)
 	if is_instance_valid(player):
 		center = player.position
+	
+	_update_reflections()
 
 # --- SIGNAL STUBS (to prevent crashes if player emits) ---
 func _on_player_cast_start(_duration): pass
