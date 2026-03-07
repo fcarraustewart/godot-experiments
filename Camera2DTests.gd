@@ -4,26 +4,43 @@ extends Camera2D
 @export var spawn_unit: PackedScene
 @export var swarm_params: FlockParams = FlockParams.new()
 
+var actual_cam_pos : Vector2
+const lerp_speed = 10.0
 
-# example repulsion
-# unit_cnt = 20
-# spawn_radius = 1.0
-# separation_wt = 0.01
-# alignment_wt = 0.001
-# cohesion_wt = 0.05
-# t_attraction_wt = -0.6
-
+func _ready_viewport_container_subpixel_fix():
+	var vp = get_viewport()
+	Globals.viewport = vp
+	
+	if vp is SubViewport:
+		var parent = vp.get_parent()
+		if parent is SubViewportContainer:
+			Globals.viewport_container = parent
+			print("[Camera2D] Subpixel fix: Identified parent SubViewportContainer.")
+		else:
+			print("[Camera2D] Subpixel fix: Running in SubViewport, but parent is not a Container.")
+	else:
+		print("[Camera2D] Subpixel fix: Running in root viewport.")
+		
 # Called when the node enters the scene tree for the first time.
 func _ready():
-	print("Camera2DTests ready")
+	_ready_viewport_container_subpixel_fix()
 	pass # Replace with function body.
-
 
 # Track active swarms to update them in real-time
 var active_swarms: Array[BaseFlockSwarm] = []
 
 # Called every frame. 'delta' is the elapsed time since the previous frame.
+func process_subpixel_fix(delta):
+	actual_cam_pos = actual_cam_pos.lerp($"../Player".global_position, lerp_speed * delta)
+	var cam_subpixel_offset = actual_cam_pos.round() - actual_cam_pos
+	Globals.viewport_container.material.set_shader_parameter("camera_offset", cam_subpixel_offset)
+
+	global_position = actual_cam_pos.round()
+	pass
+
+# Called every frame. 'delta' is the elapsed time since the previous frame.
 func _process(delta: float) -> void:
+	process_subpixel_fix(delta)
 	# position = position + sin(delta * TAU) * 50 * Vector2(1, 0)
 	
 	# LIVE UPDATE: Apply editor properties to all active swarms
@@ -54,7 +71,9 @@ func _process(delta: float) -> void:
 		print("spawn swarm AT MOUSE")
 		var icon_instance = spawn_unit.instantiate()
 		get_parent().add_child(icon_instance)
-		icon_instance.position = get_global_mouse_position()
+		icon_instance.global_position = get_global_mouse_position()
+		icon_instance.apply_impulse(700*Vector2.RIGHT, icon_instance.global_position)# Ensure the script is attached to the instance
+
 
 		# ---- SETUP FLOCK ---
 		var swarm = BaseFlockSwarm.new()
@@ -77,14 +96,15 @@ func _process(delta: float) -> void:
 		# Visual
 		# swarm.texture = load("res://art/environment/leaf/leaf1.png")
 		swarm.debug_mode = true
-		swarm.target_node = icon_instance.get_child(0) # Follow the axe
-		swarm.target_node.add_child(swarm)
+		swarm.target_node = icon_instance # Follow the axe
+		swarm.target_node.get_parent().add_child(swarm)
 		
 		active_swarms.append(swarm)
 
 		var tween = create_tween()
 		tween.parallel().tween_property(swarm, "modulate:a", 0.0, 3.5)
-		tween.parallel().tween_property(swarm, "scale", Vector2(3.5, 3.5), 3.5)
+
+		tween.tween_callback(swarm.queue_free)
 		tween.tween_callback(icon_instance.queue_free)
 
 	# Clean up invalid swarms

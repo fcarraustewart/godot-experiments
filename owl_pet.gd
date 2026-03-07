@@ -184,7 +184,7 @@ func _update_visuals(delta):
 		
 		# If we have significant speed, ensure we stay in FLYING or DEACCEL
 		# to prevent "stationary" flicker during turns
-		if speed > 70.0:
+		if speed > 10.0:
 			if speed > 80.0:
 				_change_visual_state(OwlVisualState.FLYING, 6)
 			else:
@@ -195,14 +195,18 @@ func _update_visuals(delta):
 		if current_pet_state == PetState.ATTACK:
 			if is_instance_valid(target_entity):
 				var dist = global_position.distance_to(target_entity.global_position)
-				if dist < 30.0:
+				if dist < 80.0:
 					_change_visual_state(OwlVisualState.DEACCEL, 4)
 				else:
-					_change_visual_state(OwlVisualState.STATIONARY, 5)
+					_change_visual_state(OwlVisualState.FLYING, 6)
 			else:
 				_change_visual_state(OwlVisualState.STATIONARY, 5)
 		else:
-			if speed <= 40.0:
+			if speed > 80.0:
+				_change_visual_state(OwlVisualState.FLYING, 6)
+			elif speed > 45.0:
+				_change_visual_state(OwlVisualState.DEACCEL, 4)
+			else:
 				_change_visual_state(OwlVisualState.STATIONARY, 5)
 
 	# Process Animation Frames

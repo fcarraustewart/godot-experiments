@@ -666,7 +666,6 @@ func _ready():
 	# --- SETUP CAMERA ---
 	var camera = $Camera2D
 	if camera:
-		camera.set_script(load("res://game_camera.gd"))
 		camera.lerp_speed = 5.0
 		print("[ShowSpectrum] Found Camera2D node and attached script.")
 		camera.enabled = true

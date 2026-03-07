@@ -1,12 +1,12 @@
-[gd_scene load_steps=15 format=3 uid="uid://s3kkuojictvf"]
+[gd_scene load_steps=21 format=3 uid="uid://s3kkuojictvf"]
 
 [ext_resource type="Script" path="res://CharacterBody2D.gd" id="1_hvn7r"]
-[ext_resource type="Texture2D" uid="uid://b4r1kgjiagtma" path="res://art/owl/Owl.png" id="1_js4gw"]
 [ext_resource type="Texture2D" uid="uid://b8wfgx2mjiu62" path="res://art/environment/tileset/TileSet-Default-NoGrass.png" id="1_v2vsg"]
 [ext_resource type="Texture2D" uid="uid://gbvyc1mlr2li" path="res://art/environment/tileset/TileSet-SideEnd-NoGrass.png" id="2_em26j"]
 [ext_resource type="Texture2D" uid="uid://vhj6ca00lhq" path="res://art/environment/tileset/TileSet-SideEnd-SteppedOn.png" id="3_rlh20"]
 [ext_resource type="Script" path="res://Camera2D.gd" id="3_w3ya1"]
 [ext_resource type="Texture2D" uid="uid://bxyoqmdg35i5m" path="res://art/environment/tileset/TileSet-Default-NoGrass-SteppedOn.png" id="4_iy5ux"]
+[ext_resource type="Texture2D" uid="uid://cbdx7w0oewtc2" path="res://art/owl/Owl-flying_stationary.png" id="6_idnid"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_sd1re"]
 size = Vector2(872, 52)
@@ -52,6 +52,49 @@ sources/3 = SubResource("TileSetAtlasSource_8xpvv")
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_ftdxt"]
 size = Vector2(35, 30)
 
+[sub_resource type="AtlasTexture" id="AtlasTexture_q5ghh"]
+atlas = ExtResource("6_idnid")
+region = Rect2(0, 0, 64, 64)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_af2go"]
+atlas = ExtResource("6_idnid")
+region = Rect2(64, 0, 64, 64)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_uc0bl"]
+atlas = ExtResource("6_idnid")
+region = Rect2(128, 0, 64, 64)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_28qb3"]
+atlas = ExtResource("6_idnid")
+region = Rect2(192, 0, 64, 64)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_f7865"]
+atlas = ExtResource("6_idnid")
+region = Rect2(256, 0, 64, 64)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_55fqr"]
+animations = [{
+"frames": [{
+"duration": 0.6,
+"texture": SubResource("AtlasTexture_q5ghh")
+}, {
+"duration": 0.6,
+"texture": SubResource("AtlasTexture_af2go")
+}, {
+"duration": 0.8,
+"texture": SubResource("AtlasTexture_uc0bl")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_28qb3")
+}, {
+"duration": 0.6,
+"texture": SubResource("AtlasTexture_f7865")
+}],
+"loop": true,
+"name": &"default",
+"speed": 5.0
+}]
+
 [node name="Node2D" type="Node2D"]
 
 [node name="StaticBody2D" type="StaticBody2D" parent="."]
@@ -73,9 +116,10 @@ script = ExtResource("1_hvn7r")
 position = Vector2(2.08165e-12, 2.08165e-12)
 shape = SubResource("RectangleShape2D_ftdxt")
 
-[node name="Sprite2D" type="Sprite2D" parent="Player"]
-position = Vector2(2.08165e-12, 2.08165e-12)
-texture = ExtResource("1_js4gw")
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="Player"]
+sprite_frames = SubResource("SpriteFrames_55fqr")
+autoplay = "default"
+frame_progress = 0.821457
 
 [node name="Camera2D" type="Camera2D" parent="."]
 script = ExtResource("3_w3ya1")

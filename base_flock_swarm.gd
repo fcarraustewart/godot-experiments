@@ -186,15 +186,15 @@ func on_interaction_success(msg, _meta):
 	pass
 
 func set_new_color(index: int, color: Color):
-    # # 1. Update the Main Visuals
+	# # 1. Update the Main Visuals
 	pass
-    # mm_instance.multimesh.set_instance_color(index, color)
-    
-    # # 2. Update the Debug Visuals if they exist
-    # if is_instance_valid(debug_mm_instance):
-    #     debug_mm_instance.multimesh.set_instance_color(index, color)
-        
-    # # 3. If using the Node Array approach, recolor the light too
-    # if index < light_nodes.size():
-    #     light_nodes[index].color = color
-    #     light_nodes[index].setup_visuals() # Refresh the light visuals
+	# mm_instance.multimesh.set_instance_color(index, color)
+	
+	# # 2. Update the Debug Visuals if they exist
+	# if is_instance_valid(debug_mm_instance):
+	#     debug_mm_instance.multimesh.set_instance_color(index, color)
+		
+	# # 3. If using the Node Array approach, recolor the light too
+	# if index < light_nodes.size():
+	#     light_nodes[index].color = color
+	#     light_nodes[index].setup_visuals() # Refresh the light visuals

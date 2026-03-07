@@ -1,17 +1,79 @@
-[gd_scene load_steps=3 format=3 uid="uid://b08naafe23y71"]
+[gd_scene load_steps=11 format=3 uid="uid://b08naafe23y71"]
 
 [ext_resource type="Script" path="res://Camera2DTests.gd" id="1_fqsgu"]
-[ext_resource type="Script" path="res://base_flock_swarm.gd" id="2_hhebi"]
+[ext_resource type="Shader" path="res://main.gdshader" id="2_xd24v"]
+[ext_resource type="Script" path="res://CharacterBody2D.gd" id="3_1lcc7"]
+[ext_resource type="Texture2D" uid="uid://b4r1kgjiagtma" path="res://art/owl/Owl.png" id="4_2cnct"]
+[ext_resource type="PackedScene" uid="uid://434nrelh4lrr" path="res://rigid_body_2d_arcane_missile.tscn" id="5_o6p7d"]
+[ext_resource type="Script" path="res://flock_params.gd" id="6_5ks7i"]
 
-[node name="Node2D" type="Node2D"]
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_nw3uj"]
+shader = ExtResource("2_xd24v")
+shader_parameter/cam_offset = Vector2(2.08165e-12, 2.08165e-12)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_vu2gp"]
+size = Vector2(35, 30)
+
+[sub_resource type="Resource" id="Resource_yr1cr"]
+script = ExtResource("6_5ks7i")
+unit_count = 10
+max_speed = 300.0
+spawn_radius = 1.0
+separation_weight = 1.5
+alignment_weight = 1.0
+cohesion_weight = 1.0
+target_attraction_weight = 2.0
+perception_radius = 150.0
+debug_mode = true
+sway_strength = 0.0
+sway_speed = 1.0
+frequency = 2.0
+damping = 0.6
+response = 0.0
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_tnl60"]
+size = Vector2(1677, 188)
+
+[node name="SwarmTest" type="Node2D"]
+texture_filter = 1
 position = Vector2(-6, -4)
 
-[node name="Camera2D" type="Camera2D" parent="."]
-position = Vector2(328, 182)
+[node name="SubViewportContainer" type="SubViewportContainer" parent="."]
+material = SubResource("ShaderMaterial_nw3uj")
+offset_left = -320.0
+offset_top = -180.0
+offset_right = 322.0
+offset_bottom = 182.0
+scale = Vector2(2, 2)
+metadata/_edit_use_anchors_ = true
+
+[node name="SubViewport" type="SubViewport" parent="SubViewportContainer"]
+handle_input_locally = false
+size = Vector2i(642, 362)
+render_target_update_mode = 4
+
+[node name="Player" type="CharacterBody2D" parent="SubViewportContainer/SubViewport"]
+texture_filter = 1
+position = Vector2(2.08165e-12, 2.08165e-12)
+script = ExtResource("3_1lcc7")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="SubViewportContainer/SubViewport/Player"]
+position = Vector2(2.08165e-12, 2.08165e-12)
+shape = SubResource("RectangleShape2D_vu2gp")
+
+[node name="Sprite2D" type="Sprite2D" parent="SubViewportContainer/SubViewport/Player"]
+position = Vector2(2.08165e-12, 2.08165e-12)
+texture = ExtResource("4_2cnct")
+
+[node name="Camera2D" type="Camera2D" parent="SubViewportContainer/SubViewport"]
+texture_filter = 1
 script = ExtResource("1_fqsgu")
+spawn_unit = ExtResource("5_o6p7d")
+swarm_params = SubResource("Resource_yr1cr")
 
-[node name="Node" type="Node" parent="."]
+[node name="StaticBody2D" type="StaticBody2D" parent="SubViewportContainer/SubViewport"]
+position = Vector2(-160, -160)
 
-[node name="BaseFlockSwarm" type="Node2D" parent="Node"]
-position = Vector2(328, 178)
-script = ExtResource("2_hhebi")
+[node name="CollisionShape2D" type="CollisionShape2D" parent="SubViewportContainer/SubViewport/StaticBody2D"]
+position = Vector2(-79.5, 383)
+shape = SubResource("RectangleShape2D_tnl60")

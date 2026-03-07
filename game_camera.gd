@@ -14,8 +14,23 @@ var base_zoom: Vector2 = Vector2(1.0, 1.0)
 var target_zoom: Vector2 = Vector2(1.0, 1.0)
 
 var game_size = Vector2(320, 180) # Should match the logical size of the game viewport
-var window_scale = float(Globals.viewport.size.x) / get_tree().root.content_scale_size.x
+var window_scale: float = 1.0
 var actual_cam_pos = global_position
+
+func _ready_viewport_container_subpixel_fix():
+	var vp = get_viewport()
+	Globals.viewport = vp
+	
+	if vp is SubViewport:
+		var parent = vp.get_parent()
+		if parent is SubViewportContainer:
+			Globals.viewport_container = parent
+			print("[Camera2D] Subpixel fix: Identified parent SubViewportContainer.")
+		else:
+			print("[Camera2D] Subpixel fix: Running in SubViewport, but parent is not a Container.")
+	else:
+		print("[Camera2D] Subpixel fix: Running in root viewport.")
+
 
 func _process_subpixel_fix(p_target: Node2D, delta: float):
 	if not is_instance_valid(p_target) or not Globals.viewport:
@@ -78,6 +93,7 @@ func _init():
 
 func _ready():
 	print("[CameraDebug] Script _ready called.")
+	_ready_viewport_container_subpixel_fix()
 
 	game_size = Vector2(320, 180) # Should match the logical size of the game viewport
 	window_scale = float(Globals.viewport.size.x) / game_size.x

@@ -17,6 +17,7 @@ offset_top = -4.0
 offset_right = 318.0
 offset_bottom = 178.0
 scale = Vector2(2, 2)
+metadata/_edit_use_anchors_ = true
 
 [node name="SubViewport" type="SubViewport" parent="SubViewportContainer"]
 handle_input_locally = false

@@ -1,28 +1,29 @@
-[gd_scene load_steps=9 format=3 uid="uid://434nrelh4lrr"]
+[gd_scene load_steps=10 format=3 uid="uid://o20k18wed88s"]
 
-[ext_resource type="Texture2D" uid="uid://clvkuqhpxqum6" path="res://art/spells/FireMissile.png" id="1_lt0ib"]
+[ext_resource type="Texture2D" uid="uid://clvkuqhpxqum6" path="res://art/spells/FireMissile.png" id="1_5rq4i"]
+[ext_resource type="Script" path="res://rigid_body_2d_fire_missile.gd" id="1_hawg6"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_26ua1"]
 size = Vector2(10, 8)
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_8xyml"]
-atlas = ExtResource("1_lt0ib")
+atlas = ExtResource("1_5rq4i")
 region = Rect2(0, 0, 32, 32)
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_rutnf"]
-atlas = ExtResource("1_lt0ib")
+atlas = ExtResource("1_5rq4i")
 region = Rect2(32, 0, 32, 32)
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_gnn47"]
-atlas = ExtResource("1_lt0ib")
+atlas = ExtResource("1_5rq4i")
 region = Rect2(64, 0, 32, 32)
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_u41yt"]
-atlas = ExtResource("1_lt0ib")
+atlas = ExtResource("1_5rq4i")
 region = Rect2(96, 0, 32, 32)
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_hj36y"]
-atlas = ExtResource("1_lt0ib")
+atlas = ExtResource("1_5rq4i")
 region = Rect2(128, 0, 32, 32)
 
 [sub_resource type="SpriteFrames" id="SpriteFrames_2d2rn"]
@@ -50,6 +51,7 @@ animations = [{
 
 [node name="RigidBody2D" type="RigidBody2D"]
 constant_force = Vector2(10, 2.08165e-12)
+script = ExtResource("1_hawg6")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("RectangleShape2D_26ua1")
